@@ -1,5 +1,5 @@
-#ifndef GAMEENGINE_H
-#define GAMEENGINE_H
+#ifndef GAMEENGINE2_H
+#define GAMEENGINE2_H
 
 #include <map>
 #include <string>
@@ -48,8 +48,9 @@ public:
 
     // ===== Accessors =====
     std::string stateName() const;       // returns current state's name
-    GameState getState() const { return state_; }  
-    GameState state() const { return state_; } 
+    GameState getState() const { return state_; }
+    GameState state() const { return state_; }
+    void setState(GameState newState) { state_ = newState; }   // ✅ Added setter
 
     // ===== Core Methods =====
     bool processCommand(const std::string& in);        // process a command
@@ -74,4 +75,4 @@ public:
     void startupPhase();
 };
 
-#endif // GAMEENGINE_H
+#endif // GAMEENGINE2_H
