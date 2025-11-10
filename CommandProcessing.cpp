@@ -1,4 +1,5 @@
 #include "CommandProcessing.h"
+#include "GameEngine2.h" //added by part 5
 using namespace std;
 
 /*
@@ -43,6 +44,7 @@ string Command::getEffect() const { return *effect; }
 // Save the command effect
 void Command::saveEffect(const string& eff) {
     *effect = eff;
+    notify(); //logs here added for part 5
 }
 
 // Stream output
@@ -50,6 +52,11 @@ ostream& operator<<(ostream& out, const Command& c) {
     out << "Command: " << *c.command << " | Effect: " << *c.effect;
     return out;
 }
+
+std::string Command::stringToLog() const {       // Define for part 5
+    return "EFFECT | " + *command + " -> " + *effect;
+}
+
 
 
 /*
@@ -106,6 +113,9 @@ string CommandProcessor::readCommand() {
 void CommandProcessor::saveCommand(const string& cmd) {
     Command* c = new Command(cmd);
     commands->push_back(c);
+    lastMessage = "COMMAND | " + cmd;
+    notify(); // Logs here added for part 5
+
 }
 
 // Returns command from input source and saves it
@@ -205,6 +215,10 @@ ostream& operator<<(ostream& out, const CommandProcessor& cp) {
     out << "CommandProcessor [Source=" << *cp.inputSource
         << ", Commands stored=" << cp.commands->size() << "]";
     return out;
+}
+
+std::string CommandProcessor::stringToLog() const {       // Define for part 5
+    return lastMessage;
 }
 
 

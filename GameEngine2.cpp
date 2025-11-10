@@ -1,8 +1,9 @@
-#include "GameEngine.h"
-
+#include "GameEngine2.h" //changed from GameEngine to GameEngine2
+#include "Orders.h"
 #include <algorithm>
 #include <cctype>
 #include <iostream>
+#include "LoggingObserver.h"
 
 namespace {
     // Map states to their display name.
@@ -144,9 +145,11 @@ bool GameEngine::processCommand(const std::string& in) {
     else if (state_ == GameState::Win && cmd == "end")                     onEnd();
 
     // Transition
-    state_ = itCmd->second;
-    std::cout << "Transitioned to state: " << stateName() << "\n";
-    return true;
+   //Changed for part 5
+    setState(itCmd->second);
+std::cout << "Transitioned to state: " << stateName() << "\n";
+return true;
+
 }
 
 /**
@@ -354,3 +357,9 @@ void startupPhase(){
     std::cout<<"Play started";
     
 }
+
+std::string GameEngine::stringToLog() const {
+    // You can make this more detailed later if you want
+    return std::string("STATE_CHANGE | ") + stateName();
+}
+

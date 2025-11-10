@@ -8,6 +8,7 @@
 #include "Player.h"
 #include "Orders.h"
 #include "Cards.h"
+#include "LoggingObserver.h"
 
 // ================== Game States ==================
 // Enum representing the different states of the game
@@ -25,7 +26,7 @@ enum class GameState {
 
 // ================== GameEngine ==================
 // Controls the main flow of the game and state transitions
-class GameEngine {
+class GameEngine : public Subject, public ILoggable {
 private:
     GameState state_;   // current state
     std::map<GameState, std::map<std::string, GameState>> transitions_;  // transition table
@@ -50,7 +51,10 @@ public:
     std::string stateName() const;       // returns current state's name
     GameState getState() const { return state_; }
     GameState state() const { return state_; }
-    void setState(GameState newState) { state_ = newState; }   // ✅ Added setter
+    void setState(GameState newState) { // ✅ Added setter defined here
+         state_ = newState;                     
+         notify();                       //added notify() for part 5
+        }
 
     // ===== Core Methods =====
     bool processCommand(const std::string& in);        // process a command
@@ -73,6 +77,8 @@ public:
 
     //----------A2----------//
     void startupPhase();
+
+    std::string stringToLog() const override; // part5
 };
 
 #endif // GAMEENGINE2_H

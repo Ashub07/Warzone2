@@ -11,8 +11,8 @@
 #include <string>
 #include <vector>
 #include <fstream>
-#include "GameEngine.h"   // use existing GameEngine from A1 for state validation
-
+#include "GameEngine2.h"   // use existing GameEngine from A1 for state validation  //changed to GameEngine2 for part 5
+#include "LoggingObserver.h"
 using namespace std;
 
 /*
@@ -24,7 +24,7 @@ using namespace std;
  - Implements Rule of Three (copy, assign, destroy)
  ---------------------------------------------------------
 */
-class Command {
+class Command : public Subject, public ILoggable{
 private:
     string* command;   // the actual command text
     string* effect;    // description of the effect after execution
@@ -45,6 +45,9 @@ public:
 
     // Output stream operator
     friend ostream& operator<<(ostream& out, const Command& c);
+
+    //added for part 5
+    string stringToLog() const override;
 };
 
 
@@ -58,7 +61,8 @@ public:
  - Implements Rule of Three and maintains a list of Command objects
  ---------------------------------------------------------
 */
-class CommandProcessor {
+class CommandProcessor : public Subject, public ILoggable{
+    std::string lastMessage; //added for part 5
 protected:
     vector<Command*>* commands;   // list of command objects
     string* inputSource;          // "console" or "file"
@@ -80,6 +84,9 @@ public:
     // Utility
     vector<Command*>* getCommands() const;       // returns list of stored commands
     friend ostream& operator<<(ostream& out, const CommandProcessor& cp);
+
+    //added for part 5
+    std::string stringToLog() const override;
 };
 
 
