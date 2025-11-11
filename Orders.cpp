@@ -1,4 +1,6 @@
 #include "Orders.h"
+#include <cstdlib>
+#include <ctime>
 #include <iostream>
 #include <typeinfo>
 #include "LoggingObserver.h"
@@ -101,8 +103,8 @@ Deploy& Deploy::operator=(const Deploy& order) {
 // stream insertion
 std::ostream& operator<<(std::ostream& os, const Deploy& order) {
     os << "This is a Deploy order belonging to " << order.player
-       << " to deploy " << *order.armyNum
-       << " armies to the territory " << order.targ;
+        << " to deploy " << *order.armyNum
+        << " armies to the territory " << order.targ;
     return os;
 }
 
@@ -141,10 +143,14 @@ bool Deploy::validate() const {
 // execute
 bool Deploy::execute() const {
     if (!validate()) return false;
-    // actual logic would go here
+    else {
+        targ->setArmies(targ->getArmies() + *armyNum);
+    }
     const_cast<Deploy*>(this)->notify(); //added for part 5
     return true;
 }
+
+
 //Define for part 5
 std::string Deploy::stringToLog() const {
     return "ORDER_EXECUTED | Deploy";
@@ -207,9 +213,9 @@ Advance& Advance::operator=(const Advance& order) {
 // stream insertion
 std::ostream& operator<<(std::ostream& os, const Advance& order) {
     os << "This is an Advance order belonging to " << order.player
-       << " to Advance " << *order.armyNum
-       << " armies to the territory " << order.targ
-       << " from source territory " << order.source;
+        << " to Advance " << *order.armyNum
+        << " armies to the territory " << order.targ
+        << " from source territory " << order.source;
     return os;
 }
 
@@ -249,17 +255,41 @@ void Advance::setArmynum(int armies) {
 // validate
 bool Advance::validate() const {
     if (player == nullptr || targ == nullptr || source == nullptr || *armyNum <= 0) return false;
-    // NOTE: placeholder, adapt to your Player/Territory API
-    return true;
+    return targ->getOwner() == player->getPName() && source->getOwner() == player->getPName() && source->getArmies() >= getArmynum();
 }
 
 // execute
 bool Advance::execute() const {
     if (!validate()) return false;
 
-    const_cast<Advance*>(this)->notify(); //added for part 5
+    else {
+        source->setArmies(source->getArmies() - *armyNum);
+        srand(time(0));
+        int randNum = rand() % 100; // random number between 0 and 100
+        for (; *armyNum > 0 && targ->getArmies() > 0;) {
+            if (randNum < 60) { // 60% chance attacker wins
+                targ->setArmies(targ->getArmies() - 1);
+            }
+            srand(time(0));
+            randNum = rand() % 100;
+            if (randNum < 70) {
+                (*armyNum)--;
+
+            }
+            srand(time(0));
+            randNum = rand() % 100;
+        }
+        if (targ->getArmies() == 0 && *armyNum > 0) {
+            targ->setOwner(player->getPName());
+            targ->setArmies(*armyNum);
+            *armyNum = 0;
+        }
+
+    }
+    const_cast<Advance*>(this)->notify(); //added for part 5	
     return true;
 }
+
 //Define for part 5
 std::string Advance::stringToLog() const {
     return "ORDER_EXECUTED | Advance";
@@ -311,7 +341,7 @@ Bomb& Bomb::operator=(const Bomb& order) {
 // stream insertion
 std::ostream& operator<<(std::ostream& os, const Bomb& order) {
     os << "This is a Bomb order belonging to " << order.player
-       << " to Bomb territory " << order.targ;
+        << " to Bomb territory " << order.targ;
     return os;
 }
 
@@ -334,17 +364,28 @@ void Bomb::setTarget(Territory targ) {
 
 // validate
 bool Bomb::validate() const {
-    if (player == nullptr || targ == nullptr) return false;
-    // NOTE: placeholder for adjacency rules
-    return true;
+    if (player == nullptr || targ == nullptr || targ->getOwner() == player->getPName()) return false;
+    for (auto t : player->getTerritory()) {
+        if (targ->isAdjacent(*t)) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 // execute
 bool Bomb::execute() const {
     if (!validate()) return false;
 
+    else {
+        targ->setArmies(targ->getArmies() / 2);
+    }
     const_cast<Bomb*>(this)->notify(); //added for part 5
     return true;
+}
+Bomb* Bomb::clone() const {
+    return new Bomb(*this);
 }
 
 //Define for part 5
@@ -397,7 +438,7 @@ Blockade& Blockade::operator=(const Blockade& order) {
 // stream insertion
 std::ostream& operator<<(std::ostream& os, const Blockade& order) {
     os << "This is a Blockade order belonging to " << order.player
-       << " to Blockade territory " << order.targ;
+        << " to Blockade territory " << order.targ;
     return os;
 }
 
@@ -421,15 +462,17 @@ void Blockade::setTarget(Territory targ) {
 // validate
 bool Blockade::validate() const {
     if (player == nullptr || targ == nullptr) return false;
-    // NOTE: logic should check ownership
-    return true;
+    return targ->getOwner() == player->getPName();
 }
 
 // execute
 bool Blockade::execute() const {
     if (!validate()) return false;
-
-    const_cast<Blockade*>(this)->notify();//added for part 5
+    else {
+        targ->setArmies(targ->getArmies() * 2);
+        targ->setOwner("Neutral");
+    }
+    const_cast<Blockade*>(this)->notify();//added for part 5	
     return true;
 }
 
@@ -497,9 +540,9 @@ Airlift& Airlift::operator=(const Airlift& order) {
 // stream insertion
 std::ostream& operator<<(std::ostream& os, const Airlift& order) {
     os << "This is an Airlift order belonging to " << order.player
-       << " to Airlift " << *order.armyNum
-       << " armies to the territory " << order.targ
-       << " from source territory " << order.source;
+        << " to Airlift " << *order.armyNum
+        << " armies to the territory " << order.targ
+        << " from source territory " << order.source;
     return os;
 }
 
@@ -539,8 +582,7 @@ void Airlift::setArmynum(int armies) {
 // validate
 bool Airlift::validate() const {
     if (player == nullptr || targ == nullptr || source == nullptr || *armyNum <= 0) return false;
-    // NOTE: adjust to your rules
-    return true;
+    return targ->getOwner() == player->getPName() && source->getOwner() == player->getPName() && targ->getArmies() >= getArmynum();
 }
 
 //Define for part 5
@@ -551,8 +593,11 @@ std::string Airlift::stringToLog() const {
 // execute
 bool Airlift::execute() const {
     if (!validate()) return false;
-
-    const_cast<Airlift*>(this)->notify();//added for part 5
+    else {
+        source->setArmies(source->getArmies() - *armyNum);
+        targ->setArmies(targ->getArmies() + *armyNum);
+    }
+    const_cast<Airlift*>(this)->notify();//added for part 5	
     return true;
 }
 
@@ -603,7 +648,7 @@ Negotiate& Negotiate::operator=(const Negotiate& order) {
 // stream insertion
 std::ostream& operator<<(std::ostream& os, const Negotiate& order) {
     os << "This is a Negotiate order belonging to " << order.player
-       << " to Negotiate Player " << order.targ;
+        << " to Negotiate Player " << order.targ;
     return os;
 }
 
@@ -634,7 +679,7 @@ bool Negotiate::validate() const {
 bool Negotiate::execute() const {
     if (!validate()) return false;
 
-     const_cast<Negotiate*>(this)->notify();//added for part 5
+    const_cast<Negotiate*>(this)->notify();//added for part 5
     return true;
 }
 
@@ -732,7 +777,7 @@ std::string OrdersList::stringToLog() const {
 void OrdersList::remove(Orders* order) {
     for (auto it = orders->begin(); it != orders->end(); ++it) {
         if (*it == order) {
-            delete *it;               // free memory
+            delete* it;               // free memory
             orders->erase(it);        // remove from vector
             break;
         }
