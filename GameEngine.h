@@ -42,6 +42,9 @@ private:
     void buildTransitions();
     void clearPlayers();
 
+    bool checkWinCondition();
+    void removeDefeatedPlayers();
+
 public:
     // ===== Constructor =====
     GameEngine();
@@ -67,8 +70,18 @@ public:
     void onPlayAgain();
     void onEnd();
 
+    // Part 2 
+    void startupPhase();
+
+    // Part 3
+    void reinforcementPhase();
+    void issueOrdersPhase();
+    void executeOrdersPhase();
+    void mainGameLoop();
+
     // ===== Helper =====
     void distributeRoundRobin();
 };
+
 
 #endif // GAMEENGINE_H
