@@ -2,7 +2,7 @@
 #include <string>
 #include "LoggingObserver.h"
 #include "CommandProcessing.h"
-#include "GameEngine2.h"
+#include "GameEngine.h"
 #include "Orders.h"
 #include "Player.h"
 #include "Cards.h"
