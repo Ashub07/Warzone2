@@ -1,190 +1,291 @@
 #pragma once
-#include <vector>
+#include <iostream>
 #include <string>
-#include <ostream>
+#include <vector>
+#include "Player.h"
+#include "Map.h"
 #include "LoggingObserver.h"
 
-class Player;
-class Territory;
+//create Orders class, and the subclasses are the deploy, attack, negotiate, etc. user input determines which subclass is created 
+//(and can also make invalid order that's placed in list and then jsut ignored)
+//Orderlist class will hold the orders
 
-// ---------- Base Orders ----------
-class Orders : public ILoggable, public Subject {
-public:
-    Orders();
-    explicit Orders(Player* owner);
-    Orders(const Orders& other);
-    virtual ~Orders();
-
-    Orders& operator=(const Orders& other);
-
-    // Non-owning: Orders never delete player/territories.
-    Player* getPlayer() const { return player; }
-    void setPlayer(Player* p) { player = p; }
-
-    // Each concrete order must implement these:
-    virtual bool validate() const = 0;
-    virtual bool execute() const = 0;
-    virtual Orders* clone() const = 0;
-
-    // Logging
-    virtual std::string stringToLog() const = 0;
-
-    friend std::ostream& operator<<(std::ostream& os, const Orders& order);
-
+class Orders : public Subject, public ILoggable
+{
 protected:
-    Player* player;
+	Player* player;
+
+public:
+	//constructors
+	Orders();
+	Orders(Player* player);
+
+	Orders(const Orders& order);
+
+	//destructor
+	virtual ~Orders();
+
+	//assignment+stream insertion operator
+	Orders& operator=(const Orders& order);
+	friend std::ostream& operator<<(std::ostream& os, const Orders& order);
+
+	//getters
+	Player getPlayer() const;
+
+	//setters
+	void setPlayer(Player playr);
+
+	//methods needed:
+	virtual bool validate() const = 0;
+	virtual bool execute() const = 0;
+	virtual Orders* clone() const = 0;
 };
 
-// ---------- Deploy ----------
+//subclasses
 class Deploy : public Orders {
-public:
-    Deploy();
-    Deploy(Player* playr, Territory* target, int* armynum);
-    Deploy(const Deploy& other);
-    ~Deploy() override;
-
-    Deploy& operator=(const Deploy& other);
-
-    bool validate() const override;
-    bool execute() const override;
-    Orders* clone() const override;
-
-    std::string stringToLog() const override;
-
 private:
-    Territory* targ;  // non-owning
-    int* armyNum;     // owning small heap int is fine (or you can store by value)
+	Territory* targ;
+	int* armyNum;
+public:
+	//constructors
+	Deploy();
+	Deploy(Player* player, Territory* target, int* armnum);
+
+	Deploy(const Deploy& order);
+
+	//destructor
+	~Deploy();
+
+	//assignment+stream insertion operator
+	Deploy& operator=(const Deploy& order);
+	friend std::ostream& operator<<(std::ostream& os, const Deploy& order);
+
+	//getters
+	Player getPlayer() const;
+	Territory getTarg() const;
+	int getArmynum() const;
+
+	//setters
+	void setPlayer(Player playr);
+	void setTarget(Territory target);
+	void setArmynum(int armnum);
+
+	//methods needed:
+	virtual bool validate() const;
+	virtual bool execute() const;
+	virtual Deploy* clone() const;
+
+	std::string stringToLog() const override; //part 5
 };
 
-// ---------- Advance ----------
 class Advance : public Orders {
-public:
-    Advance();
-    Advance(Player* playr, Territory* target, Territory* source, int* armynum);
-    Advance(const Advance& other);
-    ~Advance() override;
-
-    Advance& operator=(const Advance& other);
-
-    bool validate() const override;
-    bool execute() const override;
-    Orders* clone() const override;
-
-    std::string stringToLog() const override;
-
 private:
-    Territory* targ;   // non-owning
-    Territory* source; // non-owning
-    int* armyNum;      // owning
+	Territory* targ;
+	Territory* source;
+	int* armyNum;
+
+public:
+	//constructors
+	Advance();
+	Advance(Player* player, Territory* targ, Territory* source, int* armnum);
+
+	Advance(const Advance& order);
+
+	//destructor
+	~Advance();
+
+	//assignment+stream insertion operator
+	Advance& operator=(const Advance& order);
+	friend std::ostream& operator<<(std::ostream& os, const Advance& order);
+
+	//getters
+	Player getPlayer() const;
+	Territory getTarg() const;
+	Territory getSource() const;
+	int getArmynum() const;
+
+	//setters
+	void setPlayer(Player playr);
+	void setTarget(Territory target);
+	void setSource(Territory source);
+	void setArmynum(int armnum);
+
+	//methods needed:
+	virtual bool validate() const;
+	virtual bool execute() const;
+	virtual Advance* clone() const;
+
+	std::string stringToLog() const override; //part 5
 };
 
-// ---------- Bomb ----------
 class Bomb : public Orders {
-public:
-    Bomb();
-    Bomb(Player* playr, Territory* target);
-    Bomb(const Bomb& other);
-    ~Bomb() override;
-
-    Bomb& operator=(const Bomb& other);
-
-    bool validate() const override;
-    bool execute() const override;
-    Orders* clone() const override;
-
-    std::string stringToLog() const override;
-
 private:
-    Territory* targ; // non-owning
+	Territory* targ;
+
+public:
+	//constructors
+	Bomb();
+	Bomb(Player* player, Territory* target);
+
+	Bomb(const Bomb& order);
+
+	//destructor
+	~Bomb();
+
+	//assignment+stream insertion operator
+	Bomb& operator=(const Bomb& order);
+	friend std::ostream& operator<<(std::ostream& os, const Bomb& order);
+
+	//getters
+	Player getPlayer() const;
+	Territory getTarg() const;
+
+	//setters
+	void setPlayer(Player playr);
+	void setTarget(Territory target);
+
+	//methods needed:
+	virtual bool validate() const;
+	virtual bool execute() const;
+	virtual Bomb* clone() const;
+
+	std::string stringToLog() const override; //part 5
 };
 
-// ---------- Blockade ----------
 class Blockade : public Orders {
-public:
-    Blockade();
-    Blockade(Player* playr, Territory* target);
-    Blockade(const Blockade& other);
-    ~Blockade() override;
-
-    Blockade& operator=(const Blockade& other);
-
-    bool validate() const override;
-    bool execute() const override;
-    Orders* clone() const override;
-
-    std::string stringToLog() const override;
-
 private:
-    Territory* targ; // non-owning
+	Territory* targ;
+
+public:
+	//constructors
+	Blockade();
+	Blockade(Player* player, Territory* target);
+
+	Blockade(const Blockade& order);
+
+	//destructor
+	~Blockade();
+
+	//assignment+stream insertion operator
+	Blockade& operator=(const Blockade& order);
+	friend std::ostream& operator<<(std::ostream& os, const Blockade& order);
+
+	//getters
+	Player getPlayer() const;
+	Territory getTarg() const;
+
+	//setters
+	void setPlayer(Player playr);
+	void setTarget(Territory target);
+	
+	//methods needed:
+	virtual bool validate() const;
+	virtual bool execute() const;
+	virtual Blockade* clone() const;
+
+	std::string stringToLog() const override; //part 5
 };
 
-// ---------- Airlift ----------
 class Airlift : public Orders {
-public:
-    Airlift();
-    Airlift(Player* playr, Territory* target, Territory* source, int* armynum);
-    Airlift(const Airlift& other);
-    ~Airlift() override;
-
-    Airlift& operator=(const Airlift& other);
-
-    bool validate() const override;
-    bool execute() const override;
-    Orders* clone() const override;
-
-    std::string stringToLog() const override;
-
 private:
-    Territory* targ;   // non-owning
-    Territory* source; // non-owning
-    int* armyNum;      // owning
+	Territory* targ;
+	Territory* source;
+	int* armyNum;
+
+public:
+	//constructors
+	Airlift();
+	Airlift(Player* player, Territory* target, Territory* source, int* armnum);
+	Airlift(const Airlift& order);
+
+	//destructor
+	~Airlift();
+
+	//assignment+stream insertion operator
+	Airlift& operator=(const Airlift& order);
+	friend std::ostream& operator<<(std::ostream& os, const Airlift& order);
+
+	//getters
+	Player getPlayer() const;
+	Territory getTarg() const;
+	Territory getSource() const;
+	int getArmynum() const;
+
+	//setters
+	void setPlayer(Player playr);
+	void setTarget(Territory target);
+	void setSource(Territory source);
+	void setArmynum(int armnum);
+
+	//methods needed:
+	virtual bool validate() const;
+	virtual bool execute() const;
+	virtual Airlift* clone() const;
+
+	std::string stringToLog() const override; //part 5
 };
 
-// ---------- Negotiate ----------
 class Negotiate : public Orders {
-public:
-    Negotiate();
-    Negotiate(Player* playr, Player* target);
-    Negotiate(const Negotiate& other);
-    ~Negotiate() override;
-
-    Negotiate& operator=(const Negotiate& other);
-
-    bool validate() const override;
-    bool execute() const override;
-    Orders* clone() const override;
-
-    std::string stringToLog() const override;
-
 private:
-    Player* targ; // non-owning
+	Player* targ;
+
+public:
+	//constructors
+	Negotiate();
+	Negotiate(Player* player, Player* targ);
+
+	Negotiate(const Negotiate& order);
+
+	//destructor
+	~Negotiate();
+
+	//assignment+stream insertion operator
+	Negotiate& operator=(const Negotiate& order);
+	friend std::ostream& operator<<(std::ostream& os, const Negotiate& order);
+
+	//getters
+	Player getPlayer() const;
+	Player getTarget() const;
+
+	//setters
+	void setPlayer(Player playr);
+	void setTarget(Player targ);
+
+	//methods needed:
+	virtual bool validate() const;
+	virtual bool execute() const;
+	virtual Negotiate* clone() const;
+
+	std::string stringToLog() const override; //part 5
 };
 
-// ---------- OrdersList ----------
-class OrdersList : public ILoggable, public Subject {
-public:
-    OrdersList();
-    OrdersList(const OrdersList& other);
-    ~OrdersList() override;
-
-    OrdersList& operator=(const OrdersList& other);
-
-    void add(Orders* order);
-    void remove(Orders* order);
-    void move(Orders* order1, Orders* order2);
-
-    // Helpers needed by Part 3 loop:
-    bool empty() const;
-    Orders* front() const;
-    void pop_front();
-
-    // For debugging/inspection:
-    const std::vector<Orders*>& getOrders() const;
-
-    std::string stringToLog() const override;
-
-    friend std::ostream& operator<<(std::ostream& os, const OrdersList& ol);
-
+class OrdersList : public Subject, public ILoggable
+{
 private:
-    std::vector<Orders*>* orders;
+	std::vector<Orders*>* orders;
+	int length;
+
+public:
+	//constructors
+	OrdersList();
+	OrdersList(const OrdersList& order);
+
+	//destructor
+	~OrdersList();
+
+	//assignment+stream insertion operator
+	OrdersList& operator=(const OrdersList& order);
+	friend std::ostream& operator<<(std::ostream& os, const OrdersList& order);
+
+	//getters
+	std::vector<Orders*> getOrders() const;
+	//setters
+	void setOrders(std::vector<Orders*> orderss);
+
+	//methods needed:
+	void remove(Orders* order);
+	void add(Orders* order);
+	void move(Orders* order1, Orders* order2);
+
+	std::string stringToLog() const override; //part 5
 };
