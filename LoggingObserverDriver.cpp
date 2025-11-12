@@ -23,17 +23,20 @@ void testLoggingObserver() {
 
     // ORDER_ADDED + ORDER_EXECUTED
     Player alice("Alice", {}, new Deck(), new OrdersList());
+     Territory* t = new Territory(); // dummy territory for simplicity 
+    int* armies1 = new int(1);
+    int* armies2 = new int(2);
     OrdersList* ol = alice.getOrder();
     ol->attach(&logger);          // logs ORDER_ADDED when we add
-    Orders* d = new Deploy(&alice, nullptr, new int(1));
-    Orders* d2 = new Deploy(&alice, nullptr, new int(1));
+    Orders* d = new Deploy(&alice, t, armies1);
+    Orders* d2 = new Deploy(&alice, t, armies2);
     ol->add(d);                   // -> ORDER_ADDED
     ol->add(d2);
     d->attach(&logger);           // so execute() will log ORDER_EXECUTED
     d->execute();                 // -> ORDER_EXECUTED
 
     //Interactive loop to produce COMMAND/EFFECT/STATE lines
-    cout << "Enter commands (e.g., loadmap x, validatemap, addplayer p, gamestart, replay, quit)\n";
+    cout << "Enter commands (e.g., loadmap, validatemap, addplayer p, gamestart, replay, quit)\n";
     while (true) {
         string cmd = cp.getCommand();                 // -> COMMAND
         if (!cp.getCommands()->empty())

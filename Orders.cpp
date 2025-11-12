@@ -384,9 +384,11 @@ bool Bomb::execute() const {
     const_cast<Bomb*>(this)->notify(); //added for part 5
     return true;
 }
-Bomb* Bomb::clone() const {
+
+/**Bomb* Bomb::clone() const {    //commented out because duplicate on line 399
     return new Bomb(*this);
 }
+*/
 
 //Define for part 5
 std::string Bomb::stringToLog() const {
