@@ -3,754 +3,426 @@
 #include <typeinfo>
 #include "LoggingObserver.h"
 
+// =================== Base: Orders ===================
+// Non-owning: player* is referenced only (never deleted / never deep-copied)
 
-// ================= Orders =================
+Orders::Orders() : player(nullptr) {}
+Orders::Orders(Player* p) : player(p) {}
 
-// default constructor
-Orders::Orders() {
-    player = new Player();
-}
+Orders::Orders(const Orders& other)
+    : Subject(other)   // keep observer wiring
+    , player(other.player) // shallow copy, non-owning
+{}
 
-// parameterized constructor
-Orders::Orders(Player* playr) {
-    this->player = playr;
-}
+Orders::~Orders() {} // never delete player
 
-// copy constructor
-Orders::Orders(const Orders& order) {
-    player = new Player(*order.player);
-}
-
-// destructor
-Orders::~Orders() {
-    delete player;
-}
-
-// assignment operator
-Orders& Orders::operator=(const Orders& order) {
-    if (this != &order) {
-        if (this->player != nullptr) {
-            delete player;
-        }
-        this->player = new Player(*order.player);
+Orders& Orders::operator=(const Orders& other) {
+    if (this != &other) {
+        Subject::operator=(other);
+        player = other.player; // shallow
     }
     return *this;
 }
 
-// stream insertion
 std::ostream& operator<<(std::ostream& os, const Orders& order) {
-    os << "These orders belong to: " << order.player;
+    os << "Order owned by player: "
+       << (order.player ? order.player->getPName() : "(null)");
     return os;
 }
 
-// getters/setters
 Player Orders::getPlayer() const {
-    return *player;
+    return player ? *player : Player(); // return-by-value per header
 }
 
-void Orders::setPlayer(Player playr) {
-    *player = playr;
+// We cannot safely store a reference to a temporary value param.
+// If a real Player object is already referenced, copy-assign into it.
+// Otherwise, do nothing (GameEngine never calls this anyway).
+void Orders::setPlayer(Player p) {
+    if (player) *player = p;
 }
 
+// =================== Deploy ===================
+// Non-owning: targ is a borrowed Territory* from the Map.
+// Owned: armyNum is heap int created by caller; we assume ownership and delete.
 
-// No implementation for Orders::clone() since it's pure virtual in the base class.
+Deploy::Deploy() : Orders(nullptr), targ(nullptr), armyNum(nullptr) {}
 
-// ================= Deploy =================
+Deploy::Deploy(Player* playr, Territory* target, int* armynum)
+    : Orders(playr), targ(target), armyNum(armynum) {}
 
-// default constructor
-Deploy::Deploy() : Orders(nullptr) {
-    targ = nullptr;
-    armyNum = nullptr;
-}
+Deploy::Deploy(const Deploy& other)
+    : Orders(other)
+    , targ(other.targ) // shallow, non-owning
+    , armyNum(other.armyNum ? new int(*other.armyNum) : nullptr) {}
 
-// parameterized constructor
-Deploy::Deploy(Player* playr, Territory* target, int* armynum) {
-    this->player = playr;
-    this->targ = target;
-    this->armyNum = armynum;
-}
-
-// copy constructor
-Deploy::Deploy(const Deploy& order) {
-    player = new Player(*order.player);
-    targ = new Territory(*order.targ);
-    armyNum = new int(*order.armyNum);
-}
-
-// destructor
 Deploy::~Deploy() {
-    delete player;
-    delete targ;
-    delete armyNum;
+    delete armyNum; // do NOT delete targ
 }
 
-// assignment operator
-Deploy& Deploy::operator=(const Deploy& order) {
-    if (this != &order) {
-        if (this->player != nullptr) delete player;
-        if (this->targ != nullptr) delete targ;
-        if (this->armyNum != nullptr) delete armyNum;
-
-        this->player = new Player(*order.player);
-        this->targ = new Territory(*order.targ);
-        this->armyNum = new int(*order.armyNum);
+Deploy& Deploy::operator=(const Deploy& other) {
+    if (this != &other) {
+        Orders::operator=(other);
+        // targ is non-owning
+        targ = other.targ;
+        // deep-copy armyNum
+        if (armyNum) delete armyNum;
+        armyNum = other.armyNum ? new int(*other.armyNum) : nullptr;
     }
     return *this;
 }
 
-// stream insertion
-std::ostream& operator<<(std::ostream& os, const Deploy& order) {
-    os << "This is a Deploy order belonging to " << order.player
-       << " to deploy " << *order.armyNum
-       << " armies to the territory " << order.targ;
+std::ostream& operator<<(std::ostream& os, const Deploy& o) {
+    os << "Deploy " << (o.armyNum ? *o.armyNum : 0)
+       << " to " << (o.targ ? o.targ->getName() : "(null territory)")
+       << " by " << (o.player ? o.player->getPName() : "(null player)");
     return os;
 }
 
-// getters/setters
-Player Deploy::getPlayer() const {
-    return *player;
-}
+Player    Deploy::getPlayer() const { return Orders::getPlayer(); }
+void      Deploy::setPlayer(Player p) { Orders::setPlayer(p); }
 
-void Deploy::setPlayer(Player playr) {
-    *this->player = playr;
-}
+Territory Deploy::getTarg() const { return targ ? *targ : Territory(); }
+void      Deploy::setTarget(Territory t) { if (targ) *targ = t; /* non-owning */ }
 
-Territory Deploy::getTarg() const {
-    return *targ;
-}
+int  Deploy::getArmynum() const { return armyNum ? *armyNum : 0; }
+void Deploy::setArmynum(int n)  { if (!armyNum) armyNum = new int(n); else *armyNum = n; }
 
-void Deploy::setTarget(Territory targ) {
-    *this->targ = targ;
-}
-
-int Deploy::getArmynum() const {
-    return *armyNum;
-}
-
-void Deploy::setArmynum(int armies) {
-    *armyNum = armies;
-}
-
-// validate
 bool Deploy::validate() const {
-    if (player == nullptr || targ == nullptr || *armyNum <= 0) return false;
-    // NOTE: adjust this check depending on your Player/Territory API
-    return true;
+    return player && targ && armyNum && *armyNum > 0;
 }
 
-// execute
 bool Deploy::execute() const {
     if (!validate()) return false;
-    // actual logic would go here
-    const_cast<Deploy*>(this)->notify(); //added for part 5
+    const_cast<Deploy*>(this)->notify();
     return true;
 }
-//Define for part 5
-std::string Deploy::stringToLog() const {
-    return "ORDER_EXECUTED | Deploy";
-}
 
-// clone
-Deploy* Deploy::clone() const {
-    return new Deploy(*this);
-}
+std::string Deploy::stringToLog() const { return "ORDER_EXECUTED | Deploy"; }
+Deploy*     Deploy::clone() const { return new Deploy(*this); }
 
-// ================= Advance =================
+// =================== Advance ===================
+// Non-owning: targ/source borrowed from Map; armyNum owned.
 
-// default constructor
-Advance::Advance() : Orders(nullptr) {
-    targ = nullptr;
-    source = nullptr;
-    armyNum = nullptr;
-}
+Advance::Advance()
+    : Orders(nullptr), targ(nullptr), source(nullptr), armyNum(nullptr) {}
 
-// parameterized constructor
-Advance::Advance(Player* playr, Territory* target, Territory* source, int* armynum) {
-    this->player = playr;
-    this->targ = target;
-    this->source = source;
-    this->armyNum = armynum;
-}
+Advance::Advance(Player* p, Territory* target, Territory* src, int* armynum)
+    : Orders(p), targ(target), source(src), armyNum(armynum) {}
 
-// copy constructor
-Advance::Advance(const Advance& order) {
-    player = new Player(*order.player);
-    targ = new Territory(*order.targ);
-    source = new Territory(*order.source);
-    armyNum = new int(*order.armyNum);
-}
+Advance::Advance(const Advance& other)
+    : Orders(other)
+    , targ(other.targ)     // shallow
+    , source(other.source) // shallow
+    , armyNum(other.armyNum ? new int(*other.armyNum) : nullptr) {}
 
-// destructor
 Advance::~Advance() {
-    delete player;
-    delete targ;
-    delete source;
-    delete armyNum;
+    delete armyNum; // do NOT delete targ/source
 }
 
-// assignment operator
-Advance& Advance::operator=(const Advance& order) {
-    if (this != &order) {
-        if (this->player != nullptr) delete player;
-        if (this->targ != nullptr) delete targ;
-        if (this->source != nullptr) delete source;
-        if (this->armyNum != nullptr) delete armyNum;
-
-        this->player = new Player(*order.player);
-        this->targ = new Territory(*order.targ);
-        this->source = new Territory(*order.source);
-        this->armyNum = new int(*order.armyNum);
+Advance& Advance::operator=(const Advance& other) {
+    if (this != &other) {
+        Orders::operator=(other);
+        targ   = other.targ;
+        source = other.source;
+        if (armyNum) delete armyNum;
+        armyNum = other.armyNum ? new int(*other.armyNum) : nullptr;
     }
     return *this;
 }
 
-// stream insertion
-std::ostream& operator<<(std::ostream& os, const Advance& order) {
-    os << "This is an Advance order belonging to " << order.player
-       << " to Advance " << *order.armyNum
-       << " armies to the territory " << order.targ
-       << " from source territory " << order.source;
+std::ostream& operator<<(std::ostream& os, const Advance& o) {
+    os << "Advance " << (o.armyNum ? *o.armyNum : 0)
+       << " from " << (o.source ? o.source->getName() : "(null)")
+       << " to "   << (o.targ   ? o.targ->getName()   : "(null)")
+       << " by "   << (o.player ? o.player->getPName() : "(null player)");
     return os;
 }
 
-// getters/setters
-Player Advance::getPlayer() const {
-    return *player;
-}
+Player    Advance::getPlayer() const { return Orders::getPlayer(); }
+void      Advance::setPlayer(Player p) { Orders::setPlayer(p); }
+Territory Advance::getTarg() const { return targ ? *targ : Territory(); }
+void      Advance::setTarget(Territory t) { if (targ) *targ = t; }
+Territory Advance::getSource() const { return source ? *source : Territory(); }
+void      Advance::setSource(Territory s) { if (source) *source = s; }
+int       Advance::getArmynum() const { return armyNum ? *armyNum : 0; }
+void      Advance::setArmynum(int n) { if (!armyNum) armyNum = new int(n); else *armyNum = n; }
 
-void Advance::setPlayer(Player playr) {
-    *this->player = playr;
-}
-
-Territory Advance::getTarg() const {
-    return *targ;
-}
-
-void Advance::setTarget(Territory targ) {
-    *this->targ = targ;
-}
-
-Territory Advance::getSource() const {
-    return *source;
-}
-
-void Advance::setSource(Territory source) {
-    *this->source = source;
-}
-
-int Advance::getArmynum() const {
-    return *armyNum;
-}
-
-void Advance::setArmynum(int armies) {
-    *armyNum = armies;
-}
-
-// validate
 bool Advance::validate() const {
-    if (player == nullptr || targ == nullptr || source == nullptr || *armyNum <= 0) return false;
-    // NOTE: placeholder, adapt to your Player/Territory API
-    return true;
+    return player && targ && source && armyNum && *armyNum > 0;
 }
 
-// execute
 bool Advance::execute() const {
     if (!validate()) return false;
-
-    const_cast<Advance*>(this)->notify(); //added for part 5
+    const_cast<Advance*>(this)->notify();
     return true;
 }
-//Define for part 5
-std::string Advance::stringToLog() const {
-    return "ORDER_EXECUTED | Advance";
-}
 
-// clone
-Advance* Advance::clone() const {
-    return new Advance(*this);
-}
+std::string Advance::stringToLog() const { return "ORDER_EXECUTED | Advance"; }
+Advance*    Advance::clone() const { return new Advance(*this); }
 
+// =================== Bomb ===================
+// Non-owning: targ borrowed.
 
-// ================= Bomb =================
+Bomb::Bomb() : Orders(nullptr), targ(nullptr) {}
 
-// default constructor
-Bomb::Bomb() : Orders(nullptr) {
-    targ = nullptr;
-}
+Bomb::Bomb(Player* p, Territory* target) : Orders(p), targ(target) {}
 
-// parameterized constructor
-Bomb::Bomb(Player* playr, Territory* target) {
-    this->player = playr;
-    this->targ = target;
-}
+Bomb::Bomb(const Bomb& other)
+    : Orders(other), targ(other.targ) {} // shallow
 
-// copy constructor
-Bomb::Bomb(const Bomb& order) {
-    player = new Player(*order.player);
-    targ = new Territory(*order.targ);
-}
-
-// destructor
 Bomb::~Bomb() {
-    delete player;
-    delete targ;
+    // do NOT delete targ
 }
 
-// assignment operator
-Bomb& Bomb::operator=(const Bomb& order) {
-    if (this != &order) {
-        if (this->player != nullptr) delete player;
-        if (this->targ != nullptr) delete targ;
-
-        this->player = new Player(*order.player);
-        this->targ = new Territory(*order.targ);
+Bomb& Bomb::operator=(const Bomb& other) {
+    if (this != &other) {
+        Orders::operator=(other);
+        targ = other.targ;
     }
     return *this;
 }
 
-// stream insertion
-std::ostream& operator<<(std::ostream& os, const Bomb& order) {
-    os << "This is a Bomb order belonging to " << order.player
-       << " to Bomb territory " << order.targ;
+std::ostream& operator<<(std::ostream& os, const Bomb& o) {
+    os << "Bomb " << (o.targ ? o.targ->getName() : "(null)")
+       << " by "  << (o.player ? o.player->getPName() : "(null player)");
     return os;
 }
 
-// getters/setters
-Player Bomb::getPlayer() const {
-    return *player;
-}
+Player    Bomb::getPlayer() const { return Orders::getPlayer(); }
+void      Bomb::setPlayer(Player p) { Orders::setPlayer(p); }
+Territory Bomb::getTarg() const { return targ ? *targ : Territory(); }
+void      Bomb::setTarget(Territory t) { if (targ) *targ = t; }
 
-void Bomb::setPlayer(Player playr) {
-    *this->player = playr;
-}
+bool Bomb::validate() const { return player && targ; }
 
-Territory Bomb::getTarg() const {
-    return *targ;
-}
-
-void Bomb::setTarget(Territory targ) {
-    *this->targ = targ;
-}
-
-// validate
-bool Bomb::validate() const {
-    if (player == nullptr || targ == nullptr) return false;
-    // NOTE: placeholder for adjacency rules
-    return true;
-}
-
-// execute
 bool Bomb::execute() const {
     if (!validate()) return false;
-
-    const_cast<Bomb*>(this)->notify(); //added for part 5
+    const_cast<Bomb*>(this)->notify();
     return true;
 }
 
-//Define for part 5
-std::string Bomb::stringToLog() const {
-    return "ORDER_EXECUTED | Bomb";
-}
+std::string Bomb::stringToLog() const { return "ORDER_EXECUTED | Bomb"; }
+Bomb*       Bomb::clone() const { return new Bomb(*this); }
 
-// clone
-Bomb* Bomb::clone() const {
-    return new Bomb(*this);
-}
+// =================== Blockade ===================
+// Non-owning: targ borrowed.
 
-// ================= Blockade =================
+Blockade::Blockade() : Orders(nullptr), targ(nullptr) {}
 
-// default constructor
-Blockade::Blockade() : Orders(nullptr) {
-    targ = nullptr;
-}
+Blockade::Blockade(Player* p, Territory* target) : Orders(p), targ(target) {}
 
-// parameterized constructor
-Blockade::Blockade(Player* playr, Territory* target) {
-    this->player = playr;
-    this->targ = target;
-}
+Blockade::Blockade(const Blockade& other)
+    : Orders(other), targ(other.targ) {} // shallow
 
-// copy constructor
-Blockade::Blockade(const Blockade& order) {
-    player = new Player(*order.player);
-    targ = new Territory(*order.targ);
-}
-
-// destructor
 Blockade::~Blockade() {
-    delete player;
-    delete targ;
+    // do NOT delete targ
 }
 
-// assignment operator
-Blockade& Blockade::operator=(const Blockade& order) {
-    if (this != &order) {
-        if (this->player != nullptr) delete player;
-        if (this->targ != nullptr) delete targ;
-
-        this->player = new Player(*order.player);
-        this->targ = new Territory(*order.targ);
+Blockade& Blockade::operator=(const Blockade& other) {
+    if (this != &other) {
+        Orders::operator=(other);
+        targ = other.targ;
     }
     return *this;
 }
 
-// stream insertion
-std::ostream& operator<<(std::ostream& os, const Blockade& order) {
-    os << "This is a Blockade order belonging to " << order.player
-       << " to Blockade territory " << order.targ;
+std::ostream& operator<<(std::ostream& os, const Blockade& o) {
+    os << "Blockade " << (o.targ ? o.targ->getName() : "(null)")
+       << " by "      << (o.player ? o.player->getPName() : "(null player)");
     return os;
 }
 
-// getters/setters
-Player Blockade::getPlayer() const {
-    return *player;
-}
+Player    Blockade::getPlayer() const { return Orders::getPlayer(); }
+void      Blockade::setPlayer(Player p) { Orders::setPlayer(p); }
+Territory Blockade::getTarg() const { return targ ? *targ : Territory(); }
+void      Blockade::setTarget(Territory t) { if (targ) *targ = t; }
 
-void Blockade::setPlayer(Player playr) {
-    *this->player = playr;
-}
+bool Blockade::validate() const { return player && targ; }
 
-Territory Blockade::getTarg() const {
-    return *targ;
-}
-
-void Blockade::setTarget(Territory targ) {
-    *this->targ = targ;
-}
-
-// validate
-bool Blockade::validate() const {
-    if (player == nullptr || targ == nullptr) return false;
-    // NOTE: logic should check ownership
-    return true;
-}
-
-// execute
 bool Blockade::execute() const {
     if (!validate()) return false;
-
-    const_cast<Blockade*>(this)->notify();//added for part 5
+    const_cast<Blockade*>(this)->notify();
     return true;
 }
 
-//Define for part 5
-std::string Blockade::stringToLog() const {
-    return "ORDER_EXECUTED | Blockade";
-}
+std::string Blockade::stringToLog() const { return "ORDER_EXECUTED | Blockade"; }
+Blockade*   Blockade::clone() const { return new Blockade(*this); }
 
-// clone
-Blockade* Blockade::clone() const {
-    return new Blockade(*this);
-}
+// =================== Airlift ===================
+// Non-owning: targ/source borrowed; armyNum owned.
 
+Airlift::Airlift()
+    : Orders(nullptr), targ(nullptr), source(nullptr), armyNum(nullptr) {}
 
+Airlift::Airlift(Player* p, Territory* target, Territory* src, int* armynum)
+    : Orders(p), targ(target), source(src), armyNum(armynum) {}
 
-// ================= Airlift =================
+Airlift::Airlift(const Airlift& other)
+    : Orders(other)
+    , targ(other.targ)     // shallow
+    , source(other.source) // shallow
+    , armyNum(other.armyNum ? new int(*other.armyNum) : nullptr) {}
 
-// default constructor
-Airlift::Airlift() : Orders(nullptr) {
-    targ = nullptr;
-    source = nullptr;
-    armyNum = nullptr;
-}
-
-// parameterized constructor
-Airlift::Airlift(Player* playr, Territory* target, Territory* source, int* armynum) {
-    this->player = playr;
-    this->targ = target;
-    this->source = source;
-    this->armyNum = armynum;
-}
-
-// copy constructor
-Airlift::Airlift(const Airlift& order) {
-    player = new Player(*order.player);
-    targ = new Territory(*order.targ);
-    source = new Territory(*order.source);
-    armyNum = new int(*order.armyNum);
-}
-
-// destructor
 Airlift::~Airlift() {
-    delete player;
-    delete targ;
-    delete source;
-    delete armyNum;
+    delete armyNum; // do NOT delete targ/source
 }
 
-// assignment operator
-Airlift& Airlift::operator=(const Airlift& order) {
-    if (this != &order) {
-        if (this->player != nullptr) delete player;
-        if (this->targ != nullptr) delete targ;
-        if (this->source != nullptr) delete source;
-        if (this->armyNum != nullptr) delete armyNum;
-
-        this->player = new Player(*order.player);
-        this->targ = new Territory(*order.targ);
-        this->source = new Territory(*order.source);
-        this->armyNum = new int(*order.armyNum);
+Airlift& Airlift::operator=(const Airlift& other) {
+    if (this != &other) {
+        Orders::operator=(other);
+        targ   = other.targ;
+        source = other.source;
+        if (armyNum) delete armyNum;
+        armyNum = other.armyNum ? new int(*other.armyNum) : nullptr;
     }
     return *this;
 }
 
-// stream insertion
-std::ostream& operator<<(std::ostream& os, const Airlift& order) {
-    os << "This is an Airlift order belonging to " << order.player
-       << " to Airlift " << *order.armyNum
-       << " armies to the territory " << order.targ
-       << " from source territory " << order.source;
+std::ostream& operator<<(std::ostream& os, const Airlift& o) {
+    os << "Airlift " << (o.armyNum ? *o.armyNum : 0)
+       << " from "  << (o.source ? o.source->getName() : "(null)")
+       << " to "    << (o.targ   ? o.targ->getName()   : "(null)")
+       << " by "    << (o.player ? o.player->getPName() : "(null player)");
     return os;
 }
 
-// getters/setters
-Player Airlift::getPlayer() const {
-    return *player;
-}
+Player    Airlift::getPlayer() const { return Orders::getPlayer(); }
+void      Airlift::setPlayer(Player p) { Orders::setPlayer(p); }
+Territory Airlift::getTarg() const { return targ ? *targ : Territory(); }
+void      Airlift::setTarget(Territory t) { if (targ) *targ = t; }
+Territory Airlift::getSource() const { return source ? *source : Territory(); }
+void      Airlift::setSource(Territory s) { if (source) *source = s; }
+int       Airlift::getArmynum() const { return armyNum ? *armyNum : 0; }
+void      Airlift::setArmynum(int n) { if (!armyNum) armyNum = new int(n); else *armyNum = n; }
 
-void Airlift::setPlayer(Player playr) {
-    *this->player = playr;
-}
-
-Territory Airlift::getTarg() const {
-    return *targ;
-}
-
-void Airlift::setTarget(Territory targ) {
-    *this->targ = targ;
-}
-
-Territory Airlift::getSource() const {
-    return *source;
-}
-
-void Airlift::setSource(Territory source) {
-    *this->source = source;
-}
-
-int Airlift::getArmynum() const {
-    return *armyNum;
-}
-
-void Airlift::setArmynum(int armies) {
-    *armyNum = armies;
-}
-
-// validate
 bool Airlift::validate() const {
-    if (player == nullptr || targ == nullptr || source == nullptr || *armyNum <= 0) return false;
-    // NOTE: adjust to your rules
-    return true;
+    return player && targ && source && armyNum && *armyNum > 0;
 }
 
-//Define for part 5
-std::string Airlift::stringToLog() const {
-    return "ORDER_EXECUTED | Airlift";
-}
-
-// execute
 bool Airlift::execute() const {
     if (!validate()) return false;
-
-    const_cast<Airlift*>(this)->notify();//added for part 5
+    const_cast<Airlift*>(this)->notify();
     return true;
 }
 
-// clone
-Airlift* Airlift::clone() const {
-    return new Airlift(*this);
-}
+std::string Airlift::stringToLog() const { return "ORDER_EXECUTED | Airlift"; }
+Airlift*    Airlift::clone() const { return new Airlift(*this); }
 
+// =================== Negotiate ===================
+// Non-owning: targ (other player) is borrowed.
 
+Negotiate::Negotiate() : Orders(nullptr), targ(nullptr) {}
 
-// ================= Negotiate =================
+Negotiate::Negotiate(Player* p, Player* target) : Orders(p), targ(target) {}
 
-// default constructor
-Negotiate::Negotiate() : Orders(nullptr) {
-    targ = nullptr;
-}
+Negotiate::Negotiate(const Negotiate& other)
+    : Orders(other), targ(other.targ) {} // shallow
 
-// parameterized constructor
-Negotiate::Negotiate(Player* playr, Player* target) {
-    this->player = playr;
-    this->targ = target;
-}
-
-// copy constructor
-Negotiate::Negotiate(const Negotiate& order) {
-    player = new Player(*order.player);
-    targ = new Player(*order.targ);
-}
-
-// destructor
 Negotiate::~Negotiate() {
-    delete player;
-    delete targ;
+    // do NOT delete targ
 }
 
-// assignment operator
-Negotiate& Negotiate::operator=(const Negotiate& order) {
-    if (this != &order) {
-        if (this->player != nullptr) delete player;
-        if (this->targ != nullptr) delete targ;
-
-        this->player = new Player(*order.player);
-        this->targ = new Player(*order.targ);
+Negotiate& Negotiate::operator=(const Negotiate& other) {
+    if (this != &other) {
+        Orders::operator=(other);
+        targ = other.targ; // shallow
     }
     return *this;
 }
 
-// stream insertion
-std::ostream& operator<<(std::ostream& os, const Negotiate& order) {
-    os << "This is a Negotiate order belonging to " << order.player
-       << " to Negotiate Player " << order.targ;
+std::ostream& operator<<(std::ostream& os, const Negotiate& o) {
+    os << "Negotiate between "
+       << (o.player ? o.player->getPName() : "(null)")
+       << " and "
+       << (o.targ ? o.targ->getPName() : "(null)");
     return os;
 }
 
-// getters/setters
-Player Negotiate::getPlayer() const {
-    return *player;
-}
+Player Negotiate::getPlayer() const { return Orders::getPlayer(); }
+void   Negotiate::setPlayer(Player p) { Orders::setPlayer(p); }
+Player Negotiate::getTarget() const { return targ ? *targ : Player(); }
+void   Negotiate::setTarget(Player p) { if (targ) *targ = p; /* non-owning */ }
 
-void Negotiate::setPlayer(Player playr) {
-    *this->player = playr;
-}
-
-Player Negotiate::getTarget() const {
-    return *targ;
-}
-
-void Negotiate::setTarget(Player targ) {
-    *this->targ = targ;
-}
-
-// validate
 bool Negotiate::validate() const {
-    if (player == nullptr || targ == nullptr) return false;
-    return targ != player;
+    return player && targ && (targ != player);
 }
 
-// execute
 bool Negotiate::execute() const {
     if (!validate()) return false;
-
-     const_cast<Negotiate*>(this)->notify();//added for part 5
+    const_cast<Negotiate*>(this)->notify();
     return true;
 }
 
-//Define for part 5
-std::string Negotiate::stringToLog() const {
-    return "ORDER_EXECUTED | Negotiate";
-}
+std::string Negotiate::stringToLog() const { return "ORDER_EXECUTED | Negotiate"; }
+Negotiate*  Negotiate::clone() const { return new Negotiate(*this); }
 
-// clone
-Negotiate* Negotiate::clone() const {
-    return new Negotiate(*this);
-}
+// =================== OrdersList ===================
 
-// ================= OrdersList =================
+OrdersList::OrdersList() : orders(new std::vector<Orders*>()) {}
 
-// default constructor
-OrdersList::OrdersList() {
-    orders = new std::vector<Orders*>();   // allocate empty vector
-}
-
-// copy constructor
-OrdersList::OrdersList(const OrdersList& other) {
+OrdersList::OrdersList(const OrdersList& other) : Subject(other) {
     orders = new std::vector<Orders*>();
-    for (int i = 0; i < other.orders->size(); i++) {
-        Orders* ord = other.orders->at(i)->clone(); // deep copy using clone
-        this->orders->push_back(ord);
-    }
+    orders->reserve(other.orders->size());
+    for (Orders* o : *other.orders) orders->push_back(o->clone());
 }
 
-// destructor
 OrdersList::~OrdersList() {
-    // free all Orders objects
-    for (auto* ord : *orders) {
-        delete ord;
-    }
-    delete orders;  // free vector itself
+    for (auto* o : *orders) delete o;
+    delete orders;
 }
 
-// assignment operator
 OrdersList& OrdersList::operator=(const OrdersList& other) {
     if (this != &other) {
-        // clear current orders
-        for (auto* ord : *orders) {
-            delete ord;
-        }
+        Subject::operator=(other);
+        for (auto* o : *orders) delete o;
         orders->clear();
-
-        // deep copy from other
-        for (int i = 0; i < other.orders->size(); i++) {
-            Orders* ord = other.orders->at(i)->clone();
-            this->orders->push_back(ord);
-        }
+        orders->reserve(other.orders->size());
+        for (Orders* o : *other.orders) orders->push_back(o->clone());
     }
     return *this;
 }
 
-// stream insertion operator
-std::ostream& operator<<(std::ostream& os, const OrdersList& orderList) {
+std::ostream& operator<<(std::ostream& os, const OrdersList& list) {
     os << "Orders: ";
-    for (int i = 0; i < orderList.orders->size(); i++) {
-        os << *orderList.orders->at(i);
-        if (i < orderList.orders->size() - 1) os << ", ";
+    for (size_t i = 0; i < list.orders->size(); ++i) {
+        os << *list.orders->at(i);
+        if (i + 1 < list.orders->size()) os << ", ";
     }
     os << ".";
     return os;
 }
 
-// getter
-std::vector<Orders*> OrdersList::getOrders() const {
-    return *orders;
+std::vector<Orders*> OrdersList::getOrders() const { return *orders; }
+
+void OrdersList::setOrders(std::vector<Orders*> newOrders) {
+    for (auto* o : *orders) delete o;
+    *orders = std::move(newOrders);
 }
 
-// setter
-void OrdersList::setOrders(std::vector<Orders*> orderss) {
-    // clean current before setting
-    for (auto* ord : *orders) {
-        delete ord;
-    }
-    *this->orders = orderss;
-}
-
-// add order
 void OrdersList::add(Orders* order) {
-    this->orders->push_back(order);
-    notify(); //logs order for part 5
+    orders->push_back(order);
+    notify(); // logging hook
 }
 
-//Define for part 5 
 std::string OrdersList::stringToLog() const {
     return "ORDER_ADDED | total=" + std::to_string(orders ? (int)orders->size() : 0);
 }
 
-
-// remove order
 void OrdersList::remove(Orders* order) {
     for (auto it = orders->begin(); it != orders->end(); ++it) {
         if (*it == order) {
-            delete *it;               // free memory
-            orders->erase(it);        // remove from vector
+            delete *it;
+            orders->erase(it);
             break;
         }
     }
 }
 
-// move order1 to order2 position
-void OrdersList::move(Orders* order1, Orders* order2) {
-    int p1 = -1;
-    int p2 = -1;
-
-    for (int i = 0; i < orders->size(); i++) {
-        if (order1 == orders->at(i)) p1 = i;
-        if (order2 == orders->at(i)) p2 = i;
+void OrdersList::move(Orders* a, Orders* b) {
+    int ia = -1, ib = -1;
+    for (int i = 0; i < (int)orders->size(); ++i) {
+        if (orders->at(i) == a) ia = i;
+        if (orders->at(i) == b) ib = i;
     }
-
-    if (p1 > -1 && p2 > -1) {
-        std::swap(orders->at(p1), orders->at(p2));
-    }
+    if (ia > -1 && ib > -1) std::swap(orders->at(ia), orders->at(ib));
 }
-
