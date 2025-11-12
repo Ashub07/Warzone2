@@ -44,7 +44,7 @@ private:
     void buildTransitions();
     void clearPlayers();
 
-    // Helpers for A2
+    // Helpers for Part 3
     int  computeReinforcementsFor(Player* p) const;
     int  continentBonusFor(Player* p) const; // returns 0 if your Continent has no bonus field
     bool anyOrdersRemain() const;
@@ -63,7 +63,7 @@ public:
     std::string stateName() const;       // returns current state's name
     GameState getState() const { return state_; }  
     GameState state() const { return state_; } 
-    void setState(GameState newState) { // Added setter defined here
+    void setState(GameState newState) { // ✅ Added setter defined here
         state_ = newState;                     
         notify();                       //added notify() for part 5
     }
@@ -85,14 +85,14 @@ public:
     void onPlayAgain();
     void onEnd();
 
-    // ===== Round Robin Helper =====
+    // ===== Helper =====
     void distributeRoundRobin();
 
-    //----------A2----------//
     void reinforcementPhase();
     void issueOrdersPhase();
     void executeOrdersPhase();
 
+    //----------A2----------//
     void startupPhase();
 
     std::string stringToLog() const override; // part5

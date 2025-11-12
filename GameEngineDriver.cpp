@@ -80,15 +80,3 @@ void testMainGameLoop() {
 
     std::cout << "\n(Main game loop demo complete.)\n";
 }
-
-/**
- * Entry point to run either test.
- */
-int main() {
-    // Uncomment ONE of the following lines at a time to test
-    // testGameStates();
-    // testStartupPhase();
-    testMainGameLoop();
-
-    return 0;
-}

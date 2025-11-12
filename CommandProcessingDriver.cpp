@@ -44,6 +44,7 @@ void testCommandProcessor() {
  ---------------------------------------------------------
 */
 
+/*
 int main(int argc, char** argv) {
     // default mode: console
     if (argc == 1 || string(argv[1]) == "-console") {
@@ -77,3 +78,4 @@ int main(int argc, char** argv) {
 }//
 // Created by Arshdeep Bhullar on 2025-10-14.
 //
+*/
