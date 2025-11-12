@@ -1,0 +1,124 @@
+#include "Orders.h"
+#include <iostream>
+#include <vector>
+
+void testOrders() {
+	//create orders
+	  //get territories
+	std::vector<Territory*> territories;
+	Territory* t1 = new Territory("T1", "C1", "Joe", 2, 1, nullptr);
+	territories.push_back(t1);
+	Territory* t2 = new Territory("T2", "C2", "Joe", 3, 2, nullptr);
+	territories.push_back(t2);
+	Territory* t3 = new Territory("T3", "C1", "Lily", 2, 3, nullptr);
+	territories.push_back(t3);
+	Territory* t4 = new Territory("T4", "C2", "Joe", 1, 4, nullptr);
+	territories.push_back(t4);
+
+	//create deck
+	std::vector<Card*> cards1;
+	Card* c1 = new Card(cardType::Bomb);
+	cards1.push_back(c1);
+	Card* c2 = new Card(cardType::Diplomacy);
+	cards1.push_back(c2);
+	Card* c3 = new Card(cardType::Airlift);
+	cards1.push_back(c3);
+
+	Deck d1(cards1);
+
+	OrdersList* ordli1 = new OrdersList();
+
+
+	//create player
+	Player* p1 = new Player("Joe", territories, d1, *ordli1);
+
+	std::vector<Territory*> territories2;
+	Territory* t11 = new Territory("T11", "C1", "Mick", 2, 1, nullptr);
+	territories.push_back(t1);
+	Territory* t22 = new Territory("T22", "C2", "Mick", 3, 2, nullptr);
+	territories.push_back(t2);
+	Territory* t33 = new Territory("T33", "C1", "Lilyy", 2, 3, nullptr);
+	territories.push_back(t3);
+	Territory* t44 = new Territory("T4", "C2", "Joee", 1, 4, nullptr);
+	territories.push_back(t4);
+
+	//create deck
+	std::vector<Card*> cards2;
+	Card* c11 = new Card(cardType::Bomb);
+	cards1.push_back(c1);
+	Card* c22 = new Card(cardType::Diplomacy);
+	cards1.push_back(c2);
+	Card* c33 = new Card(cardType::Airlift);
+	cards1.push_back(c3);
+
+	Deck d11(cards1);
+
+	OrdersList* ordli2 = new OrdersList();
+
+
+	//create player
+	Player* p2 = new Player("Mick", territories, d1, *ordli2);
+
+
+	//create Orders
+	int num2 = 2;
+	int* num = &num2;
+	Deploy* dep = new Deploy(p2, t11, num);
+	Blockade* blk = new Blockade(p2, t22);
+	Advance* adv = new Advance(p2, t11, t22, num);
+	Advance* advfail = new Advance(p2, t11, t1, num);
+	Airlift* air = new Airlift(p2, t11, t22, num);
+	Bomb* bom = new Bomb(p2, t33);
+	Negotiate* neg = new Negotiate(p2, p1);
+	Airlift* air2 = new Airlift(p1, t11, t22, num);
+	Advance* adv2 = new Advance(p1, t1, t2, num);
+	Orders* ord = new Orders(p1);
+
+	if (adv->validate() == true) {
+		std::cout << "Order:" << adv << ", is valid.";
+		std::cout << "Order is succesful, territory now belongs to: " << adv->getPlayer().getPName();
+	}
+	else
+		sstd::cout << "Order:" << adv << ", failed to execute.";
+
+	if (blk->validate() == true) {
+		std::cout << "Order:" << blk << ", is valid.";
+		std::cout << "Order is succesful, territory now belongs to " << blk->getPlayer().getPName();
+	}
+	else
+		std::cout << "Order:" << blk << ", failed to execute.";
+
+	if (dep->validate() == true) {
+		std::cout << "Order:" << dep << ", is valid.";
+		std::cout << "Order is succesful, territory now has" << dep->getTarg().getArmies();
+	}
+	else
+		std::cout << "Order:" << dep << ", failed to execute.";
+
+
+	if (air->validate() == true) {
+		std::cout << "Order:" << air << ", is valid.";
+		std::cout << "Order is succesful, territory now has" << air->getTarg().getArmies();
+	}
+	else
+		std::cout << "Order:" << air << ", failed to execute.";
+
+	if (neg->validate() == true) {
+		std::cout << "Order:" << neg << ", is valid.";
+		std::cout << "Order is succesful, player" << neg->getTarget().getPName() << " can't attack " << neg->getPlayer().getPName();
+	}
+	else
+		std::cout << "Order:" << neg << ", failed to execute.";
+
+
+
+}
+
+
+int main() {
+//	std::cout << "Orders test: ";
+	testOrders();
+
+
+	return 0;
+}
