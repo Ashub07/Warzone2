@@ -309,155 +309,183 @@ void GameEngine::onPlayAgain() {
 void GameEngine::onEnd() {
     std::cout << "[end] Terminating program.\n";
     clearPlayers();
+}
 
+// ====== Part 3: Reinforcement / Issue Orders / Execute Orders ======
+
+int GameEngine::continentBonusFor(Player* /*p*/) const {
+    // Continent class in Map.cpp does not (yet) store a control bonus.
+    // Return 0 here. 
+    return 0;
+}
+
+int GameEngine::computeReinforcementsFor(Player* p) const {
+    const int terrCount = static_cast<int>(p->getTerritory().size());
+    int base = terrCount / 3;
+    if (base < 3) base = 3;
+    base += continentBonusFor(p);
+    return base;
 }
 
 void GameEngine::reinforcementPhase() {
-    std::cout << "=== Reinforcement Phase ===\n";
-    if (!map_) return;
-    for (Player* p : players_) {
-        if (!p->hasTerritories()) continue;
-        int terrCount = (int)p->getTerritory().size();
-        int base = terrCount / 3; if (base < 3) base = 3;
-        int bonus = 0; // TODO: add continent bonus if your Continent has a bonus field
-        p->addReinforcements(base + bonus);
-        std::cout << p->getPName() << " +"
-                  << (base + bonus) << " (pool="
-                  << p->getReinforcementPool() << ")\n";
+    if (!map_ || players_.empty()) {
+        std::cout << "[reinforcement] Skipped (no map or no players)\n";
+        return;
+    }
+
+    // Recompute reinforcement pool for all players
+    for (auto* p : players_) {
+        const int r = computeReinforcementsFor(p);
+        // store heap ints to respect pointer-type user-defined members guideline
+        auto it = reinforcementPool_->find(p);
+        if (it == reinforcementPool_->end()) {
+            (*reinforcementPool_)[p] = new int(r);
+        } else {
+            *it->second = r;
+        }
+        std::cout << "[reinforcement] " << p->getPName() << " receives " << r << " armies.\n";
+    }
+
+    if (state_ == GameState::AssignReinforcement) {
+        state_ = GameState::IssueOrders;
+        std::cout << "Transitioned to state: " << stateName() << "\n";
     }
 }
 
 void GameEngine::issueOrdersPhase() {
-    std::cout << "=== Issue Orders Phase ===\n";
-    bool someoneIssued;
-    do {
-        someoneIssued = false;
-        for (Player* p : players_) {
-            if (!p->hasTerritories()) continue;
-            auto* ol = p->getOrder();
-            size_t before = ol ? ol->getOrders().size() : 0;
-            p->issueOrder();
-            size_t after = ol ? ol->getOrders().size() : 0;
-            if (after > before) someoneIssued = true;
+    if (players_.empty()) {
+        std::cout << "[issueOrders] No players.\n";
+        return;
+    }
+
+    // PHASE 1 — While anyone still has reinforcement pool > 0, only issue Deploy(1)
+    bool deployedSomething = true;
+    while (deployedSomething) {
+        deployedSomething = false;
+        for (auto* p : players_) {
+            auto it = reinforcementPool_->find(p);
+            const int left = (it == reinforcementPool_->end() ? 0 : *it->second);
+            if (left <= 0) continue;
+
+            // Pick a territory to deploy to (first owned)
+            auto owned = p->getTerritory();
+            if (owned.empty()) continue;
+
+            int* one = new int(1);
+            Orders* dep = new Deploy(p, owned.front(), one);
+            p->getOrder()->add(dep);
+
+            // decrement pool
+            *(*reinforcementPool_)[p] = left - 1;
+            deployedSomething = true;
+
+            std::cout << "[issueOrders] " << p->getPName()
+                      << " issues Deploy(1) to " << owned.front()->getName()
+                      << " (pool left=" << *(*reinforcementPool_)[p] << ")\n";
         }
-    } while (someoneIssued);
+    }
+
+    // PHASE 2 — Round-robin: after pools are zero, allow one “non-deploy” example order per player
+    bool issuedNonDeploy = true;
+    while (issuedNonDeploy) {
+        issuedNonDeploy = false;
+        for (auto* p : players_) {
+            auto owned = p->getTerritory();
+            if (owned.size() >= 2) {
+                int* one = new int(1);
+                Orders* adv = new Advance(p, owned[1], owned[0], one);
+                p->getOrder()->add(adv);
+                issuedNonDeploy = true;
+
+                std::cout << "[issueOrders] " << p->getPName()
+                          << " issues Advance(1) " << owned[0]->getName()
+                          << " -> " << owned[1]->getName() << "\n";
+            }
+        }
+        break; // keep it to a single pass for the demo
+    }
+
+    if (state_ == GameState::IssueOrders) {
+        state_ = GameState::ExecuteOrders;
+        std::cout << "Transitioned to state: " << stateName() << "\n";
+    }
 }
 
-void GameEngine::executeOrdersPhase() {
-    std::cout << "=== Execute Orders Phase ===\n";
-    while (true) {
-        bool executedAny = false;
-
-        for (auto it = players_.begin(); it != players_.end();) {
-            Player* p = *it;
-            if (!p->hasTerritories()) {
-                std::cout << p->getPName() << " eliminated.\n";
-                delete p;
-                it = players_.erase(it);
-                continue;
-            }
-
-            OrdersList* ol = p->getOrder();
-            if (ol && !ol->empty()) {
-                Orders* o = ol->front();
-                if (o) o->execute(); // Part 4 makes this meaningful
-                ol->pop_front();
-                executedAny = true;
-            }
-            ++it;
-        }
-
-        if (checkWinCondition()) return;
-        if (!executedAny) break;
-    }
-    removeDefeatedPlayers();
-}
-
-bool GameEngine::checkWinCondition() {
-    if (!map_) return false;
-    auto* terrs = map_->getTerritories();
-    if (!terrs || terrs->empty()) return false;
-
-    Player* candidate = nullptr;
-    for (auto* t : *terrs) {
-        if (!t) continue;
-        const std::string owner = t->getOwner();
-        if (owner.empty()) return false;
-
-        Player* ownerP = nullptr;
-        for (Player* p : players_) if (p->getPName() == owner) { ownerP = p; break; }
-        if (!ownerP) return false;
-
-        if (!candidate) candidate = ownerP;
-        else if (candidate != ownerP) return false;
-    }
-    if (candidate) {
-        std::cout << "[win] " << candidate->getPName() << " controls all territories.\n";
-        setState(GameState::Win);
-        return true;
+bool GameEngine::anyOrdersRemain() const {
+    for (auto* p : players_) {
+        if (!p->getOrder()->getOrders().empty()) return true;
     }
     return false;
 }
 
 void GameEngine::removeDefeatedPlayers() {
-    for (auto it = players_.begin(); it != players_.end();) {
-        Player* p = *it;
-        if (!p->hasTerritories()) {
-            std::cout << p->getPName() << " eliminated.\n";
-            delete p;
-            it = players_.erase(it);
-        } else ++it;
-    }
-}
-
-void GameEngine::mainGameLoop() {
-    std::cout << "=== Main Game Loop ===\n";
-    while (state_ != GameState::Win && state_ != GameState::End) {
-        setState(GameState::AssignReinforcement);
-        reinforcementPhase();
-
-        setState(GameState::IssueOrders);
-        issueOrdersPhase();
-
-        setState(GameState::ExecuteOrders);
-        executeOrdersPhase();
-
-        if (state_ == GameState::Win || players_.size() <= 1) break;
-    }
-    std::cout << "Game over.\n";
-}
-
-void GameEngine::startupPhase() {
-    std::cout << "=== Startup Phase ===\n";
-
-    // 1) Load + validate a map 
-    onLoadMap();         // your onLoadMap() should set map_ (e.g., "sample.map")
-    onValidateMap();     // validates and sets state to MapValidated internally if OK
-
-    // 2) Create 2–6 players 
-    //    Ensure onAddPlayer() appends to players_
-    //    If your onAddPlayer() makes exactly 2, call it twice or push_back() here.
-    if (players_.size() < 2) {
-        onAddPlayer(); // should add at least one player
-        onAddPlayer();
-    }
-
-    // 3) Randomize player order 
-    std::random_device rd; std::mt19937 g(rd());
-    std::shuffle(players_.begin(), players_.end(), g);
-    std::cout << "Player order: ";
-    for (auto* p : players_) std::cout << p->getPName() << " ";
-    std::cout << "\n";
-
-    // 4) Assign territories round-robin 
-    onAssignCountries(); // should distribute *all* territories
-
-    // 5) Initial reinforcement pool and cards
+    // Remove any player with 0 territories
+    std::vector<Player*> survivors;
+    survivors.reserve(players_.size());
     for (auto* p : players_) {
-        p->addReinforcements(50);              // 50 armies
+        if (p->getTerritory().empty()) {
+            std::cout << "[executeOrders] Removing defeated player: " << p->getPName() << "\n";
+            // cleanup per-pool entry
+            auto it = reinforcementPool_->find(p);
+            if (it != reinforcementPool_->end()) {
+                delete it->second;
+                reinforcementPool_->erase(it);
+            }
+            delete p;
+        } else {
+            survivors.push_back(p);
+        }
+    }
+    players_.swap(survivors);
+}
+
+bool GameEngine::checkWinAndMaybeEnterWinState() {
+    if (!map_) return false;
+    const size_t total = map_->getTerritories() ? map_->getTerritories()->size() : 0;
+    if (total == 0) return false;
+
+    for (auto* p : players_) {
+        if (p->getTerritory().size() == total) {
+            std::cout << "[executeOrders] " << p->getPName() << " controls all territories! WIN\n";
+            state_ = GameState::Win;
+            std::cout << "Transitioned to state: " << stateName() << "\n";
+            return true;
+        }
+    }
+    return false;
+}
+
+void GameEngine::executeOrdersPhase() {
+    if (players_.empty()) {
+        std::cout << "[executeOrders] No players.\n";
+        return;
     }
 
-    // 6) Set next state ready for main loop
-    setState(GameState::AssignReinforcement);
-    notify(this);
+    // Round-robin: grab top order from each player's list and execute, repeat until all empty
+    while (anyOrdersRemain()) {
+        for (auto* p : players_) {
+            OrdersList* ol = p->getOrder();
+            auto v = ol->getOrders();           // snapshot (vector of pointers)
+            if (v.empty()) continue;
+
+            Orders* top = v.front();
+            if (top) {
+                bool ok = top->execute();
+                std::cout << "[executeOrders] " << p->getPName()
+                          << " executes " << typeid(*top).name()
+                          << " -> " << (ok ? "OK" : "INVALID") << "\n";
+                ol->remove(top); // also deletes the order
+            }
+        }
+
+        // Players with 0 territories are removed (per rules)
+        removeDefeatedPlayers();
+        if (checkWinAndMaybeEnterWinState()) return; // stop if someone won
+    }
+
+    // Loop back to reinforcement
+    if (state_ == GameState::ExecuteOrders) {
+        state_ = GameState::AssignReinforcement;
+        std::cout << "Transitioned to state: " << stateName() << "\n";
+    }
 }
