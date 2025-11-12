@@ -4,10 +4,12 @@
 #include <map>
 #include <string>
 #include <vector>
+#include <unordered_map>
 #include "Map.h"
 #include "Player.h"
 #include "Orders.h"
 #include "Cards.h"
+#include "LoggingObserver.h"
 
 // ================== Game States ==================
 // Enum representing the different states of the game
@@ -25,7 +27,7 @@ enum class GameState {
 
 // ================== GameEngine ==================
 // Controls the main flow of the game and state transitions
-class GameEngine {
+class GameEngine : public Subject, public ILoggable {
 private:
     GameState state_;   // current state
     std::map<GameState, std::map<std::string, GameState>> transitions_;  // transition table
@@ -53,15 +55,19 @@ private:
     std::unordered_map<Player*, int*>* reinforcementPool_ = nullptr;
 
 public:
-    // ===== Constructor =====
-    GameEngine(){
-        if (!reinforcementPool_) reinforcementPool_ = new std::unordered_map<Player*, int*>();
-    };
+    // ===== Constructor/Destructor =====
+    GameEngine();
+    ~GameEngine();        
 
     // ===== Accessors =====
     std::string stateName() const;       // returns current state's name
     GameState getState() const { return state_; }  
     GameState state() const { return state_; } 
+    void setState(GameState newState) { // ✅ Added setter defined here
+        state_ = newState;                     
+        notify();                       //added notify() for part 5
+    }
+
 
     // ===== Core Methods =====
     bool processCommand(const std::string& in);        // process a command
@@ -85,6 +91,11 @@ public:
     void reinforcementPhase();
     void issueOrdersPhase();
     void executeOrdersPhase();
+
+    //----------A2----------//
+    void startupPhase();
+
+    std::string stringToLog() const override; // part5
 };
 
 #endif // GAMEENGINE_H
