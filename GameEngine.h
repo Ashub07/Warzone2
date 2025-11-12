@@ -44,7 +44,7 @@ private:
     void buildTransitions();
     void clearPlayers();
 
-    // Helpers for Part 3
+    // Helpers for A2
     int  computeReinforcementsFor(Player* p) const;
     int  continentBonusFor(Player* p) const; // returns 0 if your Continent has no bonus field
     bool anyOrdersRemain() const;
@@ -88,11 +88,11 @@ public:
     // ===== Helper =====
     void distributeRoundRobin();
 
+    //----------A2----------//
     void reinforcementPhase();
     void issueOrdersPhase();
     void executeOrdersPhase();
 
-    //----------A2----------//
     void startupPhase();
 
     std::string stringToLog() const override; // part5
