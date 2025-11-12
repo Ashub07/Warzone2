@@ -11,7 +11,7 @@
 #include <string>
 #include <vector>
 #include <fstream>
-#include "GameEngine2.h"   // use existing GameEngine from A1 for state validation  //changed to GameEngine2 for part 5
+#include "GameEngine.h"   // use existing GameEngine from A1 for state validation  //changed to GameEngine2 for part 5
 #include "LoggingObserver.h"
 using namespace std;
 
