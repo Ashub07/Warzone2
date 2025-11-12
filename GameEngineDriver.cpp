@@ -44,10 +44,39 @@ void testGameStates() {
     std::cout << "Program terminated.\n";
 }
 
-void TestStartupPhase(){
-    std::cout << "Startup Phase Begun ";
-    GameEngine engine; 
-    engine.startupPhase();
-    std::cout << "Startup Phase Finished ";
+/**
+ * === A2 Part 3: Demo of the main game loop ===
+ */
+void testMainGameLoop() {
+    GameEngine engine;
+
+    engine.onLoadMap();
+    engine.onValidateMap();
+    engine.onAddPlayer();
+    engine.onAssignCountries();
+
+    std::cout << "\n=== TURN 1 ===\n";
+    engine.reinforcementPhase();
+    engine.issueOrdersPhase();
+    engine.executeOrdersPhase();
+
+    if (engine.getState() != GameState::Win) {
+        std::cout << "\n=== TURN 2 ===\n";
+        engine.reinforcementPhase();
+        engine.issueOrdersPhase();
+        engine.executeOrdersPhase();
+    }
+
+    std::cout << "\n(Main game loop demo complete.)\n";
 }
 
+/**
+ * Entry point to run either test.
+ */
+int main() {
+    // Uncomment ONE of the following lines at a time to test
+    // testGameStates();
+    testMainGameLoop();
+
+    return 0;
+}
