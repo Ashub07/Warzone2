@@ -309,4 +309,155 @@ void GameEngine::onPlayAgain() {
 void GameEngine::onEnd() {
     std::cout << "[end] Terminating program.\n";
     clearPlayers();
+
+}
+
+void GameEngine::reinforcementPhase() {
+    std::cout << "=== Reinforcement Phase ===\n";
+    if (!map_) return;
+    for (Player* p : players_) {
+        if (!p->hasTerritories()) continue;
+        int terrCount = (int)p->getTerritory().size();
+        int base = terrCount / 3; if (base < 3) base = 3;
+        int bonus = 0; // TODO: add continent bonus if your Continent has a bonus field
+        p->addReinforcements(base + bonus);
+        std::cout << p->getPName() << " +"
+                  << (base + bonus) << " (pool="
+                  << p->getReinforcementPool() << ")\n";
+    }
+}
+
+void GameEngine::issueOrdersPhase() {
+    std::cout << "=== Issue Orders Phase ===\n";
+    bool someoneIssued;
+    do {
+        someoneIssued = false;
+        for (Player* p : players_) {
+            if (!p->hasTerritories()) continue;
+            auto* ol = p->getOrder();
+            size_t before = ol ? ol->getOrders().size() : 0;
+            p->issueOrder();
+            size_t after = ol ? ol->getOrders().size() : 0;
+            if (after > before) someoneIssued = true;
+        }
+    } while (someoneIssued);
+}
+
+void GameEngine::executeOrdersPhase() {
+    std::cout << "=== Execute Orders Phase ===\n";
+    while (true) {
+        bool executedAny = false;
+
+        for (auto it = players_.begin(); it != players_.end();) {
+            Player* p = *it;
+            if (!p->hasTerritories()) {
+                std::cout << p->getPName() << " eliminated.\n";
+                delete p;
+                it = players_.erase(it);
+                continue;
+            }
+
+            OrdersList* ol = p->getOrder();
+            if (ol && !ol->empty()) {
+                Orders* o = ol->front();
+                if (o) o->execute(); // Part 4 makes this meaningful
+                ol->pop_front();
+                executedAny = true;
+            }
+            ++it;
+        }
+
+        if (checkWinCondition()) return;
+        if (!executedAny) break;
+    }
+    removeDefeatedPlayers();
+}
+
+bool GameEngine::checkWinCondition() {
+    if (!map_) return false;
+    auto* terrs = map_->getTerritories();
+    if (!terrs || terrs->empty()) return false;
+
+    Player* candidate = nullptr;
+    for (auto* t : *terrs) {
+        if (!t) continue;
+        const std::string owner = t->getOwner();
+        if (owner.empty()) return false;
+
+        Player* ownerP = nullptr;
+        for (Player* p : players_) if (p->getPName() == owner) { ownerP = p; break; }
+        if (!ownerP) return false;
+
+        if (!candidate) candidate = ownerP;
+        else if (candidate != ownerP) return false;
+    }
+    if (candidate) {
+        std::cout << "[win] " << candidate->getPName() << " controls all territories.\n";
+        setState(GameState::Win);
+        return true;
+    }
+    return false;
+}
+
+void GameEngine::removeDefeatedPlayers() {
+    for (auto it = players_.begin(); it != players_.end();) {
+        Player* p = *it;
+        if (!p->hasTerritories()) {
+            std::cout << p->getPName() << " eliminated.\n";
+            delete p;
+            it = players_.erase(it);
+        } else ++it;
+    }
+}
+
+void GameEngine::mainGameLoop() {
+    std::cout << "=== Main Game Loop ===\n";
+    while (state_ != GameState::Win && state_ != GameState::End) {
+        setState(GameState::AssignReinforcement);
+        reinforcementPhase();
+
+        setState(GameState::IssueOrders);
+        issueOrdersPhase();
+
+        setState(GameState::ExecuteOrders);
+        executeOrdersPhase();
+
+        if (state_ == GameState::Win || players_.size() <= 1) break;
+    }
+    std::cout << "Game over.\n";
+}
+
+void GameEngine::startupPhase() {
+    std::cout << "=== Startup Phase ===\n";
+
+    // 1) Load + validate a map 
+    onLoadMap();         // your onLoadMap() should set map_ (e.g., "sample.map")
+    onValidateMap();     // validates and sets state to MapValidated internally if OK
+
+    // 2) Create 2–6 players 
+    //    Ensure onAddPlayer() appends to players_
+    //    If your onAddPlayer() makes exactly 2, call it twice or push_back() here.
+    if (players_.size() < 2) {
+        onAddPlayer(); // should add at least one player
+        onAddPlayer();
+    }
+
+    // 3) Randomize player order 
+    std::random_device rd; std::mt19937 g(rd());
+    std::shuffle(players_.begin(), players_.end(), g);
+    std::cout << "Player order: ";
+    for (auto* p : players_) std::cout << p->getPName() << " ";
+    std::cout << "\n";
+
+    // 4) Assign territories round-robin 
+    onAssignCountries(); // should distribute *all* territories
+
+    // 5) Initial reinforcement pool and cards
+    for (auto* p : players_) {
+        p->addReinforcements(50);              // 50 armies
+    }
+
+    // 6) Set next state ready for main loop
+    setState(GameState::AssignReinforcement);
+    notify(this);
 }
