@@ -132,13 +132,24 @@ std::vector<Territory*> Player::toAttack(Player p) {
     return attack;
 }
 
-// issueOrder method creates an order object and puts it in the player's order list
-// issueOrder method creates an order object and puts it in the player's order list
+int Player::getReinforcementPool() const { return *reinforcementPool; }
+void Player::addReinforcements(int n){ if(n>0) *reinforcementPool += n; }
+void Player::useReinforcements(int n){ if(n>0){ *reinforcementPool -= n; if(*reinforcementPool<0)*reinforcementPool=0; } }
+bool Player::hasTerritories() const { return !Pterritories->empty(); }
+
 void Player::issueOrder() {
-    // create a simple Deploy order (example) and add it to this player's order list
-    if (!Pterritories->empty()) {
-        int* one = new int(1);
-        Orders* or2 = new Deploy(this, Pterritories->front(), one);
-        order->add(or2);
+    if (!hasTerritories()) return;
+    if (*reinforcementPool > 0) {
+        int amount = 1; // simple RR deploy
+        if (*reinforcementPool < amount) amount = *reinforcementPool;
+        *reinforcementPool -= amount;
+
+        Territory* target = Pterritories->front();
+        auto* n = new int(amount);
+        Orders* o = new Deploy(this, target, n);
+        order->add(o);
+        std::cout << "[issueOrder] " << *pName << " Deploy " << amount
+                  << " to " << target->getName()
+                  << " (pool=" << *reinforcementPool << ")\n";
     }
 }
