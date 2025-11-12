@@ -44,3 +44,10 @@ void testGameStates() {
     std::cout << "Program terminated.\n";
 }
 
+void TestStartupPhase(){
+    std::cout << "Startup Phase Begun ";
+    GameEngine engine; 
+    engine.startupPhase();
+    std::cout << "Startup Phase Finished ";
+}
+
