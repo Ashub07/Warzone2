@@ -37,10 +37,16 @@ public:
     std::vector<Territory*> toAttack(Player p);   // territories to attack
     void issueOrder();                            // issue an order
 
+    int  getReinforcementPool() const;
+    void addReinforcements(int n);
+    void useReinforcements(int n);
+    bool hasTerritories() const;
+
 private:
     // ===== Member variables =====
     std::string* pName;                          // player's name
     std::vector<Territory*>* Pterritories;       // territories owned
     Deck* deck;                                  // deck of cards
     OrdersList* order;                           // player's orders list
+    int* reinforcementPool;
 };
