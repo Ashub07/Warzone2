@@ -42,12 +42,21 @@ private:
     void buildTransitions();
     void clearPlayers();
 
-    bool checkWinCondition();
-    void removeDefeatedPlayers();
+    // Helpers for Part 3
+    int  computeReinforcementsFor(Player* p) const;
+    int  continentBonusFor(Player* p) const; // returns 0 if your Continent has no bonus field
+    bool anyOrdersRemain() const;
+    void removeDefeatedPlayers();            // drop players with zero territories
+    bool checkWinAndMaybeEnterWinState();    // returns true if someone owns all territories
+
+    // Track reinforcement pools per player (heap-allocated to respect pointer rule)
+    std::unordered_map<Player*, int*>* reinforcementPool_ = nullptr;
 
 public:
     // ===== Constructor =====
-    GameEngine();
+    GameEngine(){
+        if (!reinforcementPool_) reinforcementPool_ = new std::unordered_map<Player*, int*>();
+    };
 
     // ===== Accessors =====
     std::string stateName() const;       // returns current state's name
@@ -70,18 +79,12 @@ public:
     void onPlayAgain();
     void onEnd();
 
-    // Part 2 
-    void startupPhase();
+    // ===== Helper =====
+    void distributeRoundRobin();
 
-    // Part 3
     void reinforcementPhase();
     void issueOrdersPhase();
     void executeOrdersPhase();
-    void mainGameLoop();
-
-    // ===== Helper =====
-    void distributeRoundRobin();
 };
-
 
 #endif // GAMEENGINE_H
