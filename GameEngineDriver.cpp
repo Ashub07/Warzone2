@@ -45,6 +45,17 @@ void testGameStates() {
 }
 
 /**
+ * === A2 Part 2: Demo of the start-up phase ===
+ */
+void testStartupPhase() {
+    std::cout << "=== testStartupPhase ===\n";
+    GameEngine engine;
+    engine.startupPhase();
+    std::cout << "[driver] Startup complete. Current state: " << engine.stateName() << "\n";
+    std::cout << "You can now enter your Part-3 loop if desired.\n";
+}
+
+/**
  * === A2 Part 3: Demo of the main game loop ===
  */
 void testMainGameLoop() {
@@ -76,6 +87,7 @@ void testMainGameLoop() {
 int main() {
     // Uncomment ONE of the following lines at a time to test
     // testGameStates();
+    // testStartupPhase();
     testMainGameLoop();
 
     return 0;
