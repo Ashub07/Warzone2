@@ -1,8 +1,9 @@
 #include "GameEngine.h"
-
+#include "Orders.h"
 #include <algorithm>
 #include <cctype>
 #include <iostream>
+#include "LoggingObserver.h"
 
 namespace {
     // Map states to their display name.
@@ -22,8 +23,19 @@ namespace {
     }
 }
 
-GameEngine::GameEngine() : state_(GameState::Start) {
+GameEngine::GameEngine()
+    : state_(GameState::Start)
+    , reinforcementPool_(new std::unordered_map<Player*, int*>())
+{
     buildTransitions();
+}
+
+GameEngine::~GameEngine() {
+    if (reinforcementPool_) {
+        for (auto& kv : *reinforcementPool_) delete kv.second;
+        delete reinforcementPool_;
+        reinforcementPool_ = nullptr;
+    }
 }
 
 /**
@@ -144,7 +156,7 @@ bool GameEngine::processCommand(const std::string& in) {
     else if (state_ == GameState::Win && cmd == "end")                     onEnd();
 
     // Transition
-    state_ = itCmd->second;
+    setState(itCmd->second);
     std::cout << "Transitioned to state: " << stateName() << "\n";
     return true;
 }
@@ -204,11 +216,8 @@ void GameEngine::onAddPlayer() {
     clearPlayers();
 
     std::vector<Territory*> none;
-    Deck* d = new Deck();              // FIX: allocate pointer
-    OrdersList* ol = new OrdersList(); // FIX: allocate pointer
-
-    players_.push_back(new Player("Alice", none, d, ol));
-    players_.push_back(new Player("Bob",   none, d, ol));
+    players_.push_back(new Player("Alice", none, new Deck(), new OrdersList()));
+    players_.push_back(new Player("Bob",   none, new Deck(), new OrdersList()));
 
     std::cout << "[addplayer] Created " << players_.size() << " players.\n";
 }
@@ -247,6 +256,7 @@ void GameEngine::onAssignCountries() {
     }
     distributeRoundRobin();
     std::cout << "[assigncountries] Territories distributed to players.\n";
+    state_ = GameState::AssignReinforcement;
 }
 
 /**
@@ -309,6 +319,54 @@ void GameEngine::onPlayAgain() {
 void GameEngine::onEnd() {
     std::cout << "[end] Terminating program.\n";
     clearPlayers();
+}
+
+//----------------------------------------------------------------------//
+//--------------------------------A2------------------------------------//
+//----------------------------------------------------------------------//
+
+void GameEngine::startupPhase(){
+    //create game engine an validate map
+    GameEngine engine1;
+    
+    //create map loader and load map file
+    engine1.onLoadMap();
+    //MapLoader loader;
+    //std::string file1 = "maps/valid_map1.map";
+    //loader.loadMap(file1);
+
+
+    //validate the map
+    engine1.onValidateMap();
+
+    //addplayers
+    engine1.onAddPlayer();
+
+    //game start phase
+    //assign territories to players
+    engine1.onAssignCountries();
+    
+    //player random order
+
+    //let player draw 2 cards
+    std::vector<Player *> players_;
+    Deck* deck;
+    Hand h;
+    for(int i=0; i<players_.size(); i++){
+        deck = players_[i]->getDeck();
+        deck->draw(h);
+        std::cout<<"Cards drawn\n" << deck; //not getting done
+    }
+    
+    //switch to play phase
+    engine1.onIssueOrder();
+    std::cout<<"Play started";
+    
+}
+
+std::string GameEngine::stringToLog() const {
+    // You can make this more detailed later if you want
+    return std::string("STATE_CHANGE | ") + stateName();
 }
 
 // ====== Part 3: Reinforcement / Issue Orders / Execute Orders ======
@@ -386,25 +444,57 @@ void GameEngine::issueOrdersPhase() {
     }
 
     // PHASE 2 — Round-robin: after pools are zero, allow one “non-deploy” example order per player
-    bool issuedNonDeploy = true;
-    while (issuedNonDeploy) {
-        issuedNonDeploy = false;
-        for (auto* p : players_) {
-            auto owned = p->getTerritory();
-            if (owned.size() >= 2) {
-                int* one = new int(1);
-                Orders* adv = new Advance(p, owned[1], owned[0], one);
-                p->getOrder()->add(adv);
-                issuedNonDeploy = true;
+    bool issuedNonDeploy = false;
+    for (auto* p : players_) {
+        auto owned = p->getTerritory();
+        if (owned.empty()) continue;
 
-                std::cout << "[issueOrders] " << p->getPName()
-                          << " issues Advance(1) " << owned[0]->getName()
-                          << " -> " << owned[1]->getName() << "\n";
+        Territory* chosenSrc = nullptr;
+        Territory* chosenDst = nullptr;
+
+        // 1) Prefer attacking an adjacent enemy
+        for (auto* src : owned) {
+            auto* adj = src->getAdjacentTerritories(); // vector<Territory*>*
+            if (!adj) continue;
+            for (auto* nbr : *adj) {
+                if (nbr->getOwner() != p->getPName()) { // enemy neighbor
+                    chosenSrc = src;
+                    chosenDst = nbr;
+                    break;
+                }
+            }
+            if (chosenSrc) break;
+        }
+
+        // 2) Otherwise, move within own adjacency (fortify)
+        if (!chosenSrc) {
+            for (auto* src : owned) {
+                auto* adj = src->getAdjacentTerritories();
+                if (!adj) continue;
+                for (auto* nbr : *adj) {
+                    if (nbr->getOwner() == p->getPName()) { // friendly neighbor
+                        chosenSrc = src;
+                        chosenDst = nbr;
+                        break;
+                    }
+                }
+                if (chosenSrc) break;
             }
         }
-        break; // keep it to a single pass for the demo
+
+        if (chosenSrc && chosenDst) {
+            int* one = new int(1);
+            Orders* adv = new Advance(p, chosenDst, chosenSrc, one);
+            p->getOrder()->add(adv);
+            issuedNonDeploy = true;
+
+            std::cout << "[issueOrders] " << p->getPName()
+                    << " issues Advance(1) " << chosenSrc->getName()
+                    << " -> " << chosenDst->getName() << "\n";
+        }
     }
 
+    // move to execution state
     if (state_ == GameState::IssueOrders) {
         state_ = GameState::ExecuteOrders;
         std::cout << "Transitioned to state: " << stateName() << "\n";
