@@ -87,13 +87,19 @@ void      Deploy::setTarget(Territory t) { if (targ) *targ = t; /* non-owning */
 int  Deploy::getArmynum() const { return armyNum ? *armyNum : 0; }
 void Deploy::setArmynum(int n)  { if (!armyNum) armyNum = new int(n); else *armyNum = n; }
 
+// validate
 bool Deploy::validate() const {
-    return player && targ && armyNum && *armyNum > 0;
+    if (player == nullptr || targ == nullptr || *armyNum <= 0) return false;
+    return true;
 }
 
+// execute
 bool Deploy::execute() const {
     if (!validate()) return false;
-    const_cast<Deploy*>(this)->notify();
+    else {
+        targ->setArmies(targ->getArmies() + *armyNum);
+    }
+    const_cast<Deploy*>(this)->notify(); //added for part 5
     return true;
 }
 
@@ -147,13 +153,42 @@ void      Advance::setSource(Territory s) { if (source) *source = s; }
 int       Advance::getArmynum() const { return armyNum ? *armyNum : 0; }
 void      Advance::setArmynum(int n) { if (!armyNum) armyNum = new int(n); else *armyNum = n; }
 
+// validate
 bool Advance::validate() const {
-    return player && targ && source && armyNum && *armyNum > 0;
+    if (player == nullptr || targ == nullptr || source == nullptr || *armyNum <= 0) return false;
+    return targ->getOwner() == player->getPName() && source->getOwner() == player->getPName() && source->getArmies() >= getArmynum();
 }
 
+// execute
 bool Advance::execute() const {
     if (!validate()) return false;
-    const_cast<Advance*>(this)->notify();
+
+    else {
+        source->setArmies(source->getArmies() - *armyNum);
+        srand(time(0));
+        int randNum = rand() % 100; // random number between 0 and 100
+        for (; *armyNum > 0 && targ->getArmies() > 0;) {
+            if (randNum < 60) { // 60% chance attacker wins
+                targ->setArmies(targ->getArmies() - 1);
+            }
+            srand(time(0));
+            randNum = rand() % 100;
+            if (randNum < 70) {
+                (*armyNum)--;
+
+            }
+            srand(time(0));
+            randNum = rand() % 100;
+        }
+        if (targ->getArmies() == 0 && *armyNum > 0) {
+            targ->setOwner(player->getPName());
+            targ->setArmies(*armyNum);
+            *armyNum = 0;
+     
+        }
+
+    }
+    const_cast<Advance*>(this)->notify(); //added for part 5	
     return true;
 }
 
@@ -193,12 +228,31 @@ void      Bomb::setPlayer(Player p) { Orders::setPlayer(p); }
 Territory Bomb::getTarg() const { return targ ? *targ : Territory(); }
 void      Bomb::setTarget(Territory t) { if (targ) *targ = t; }
 
-bool Bomb::validate() const { return player && targ; }
 
+// validate
+bool Bomb::validate() const {
+    if (player == nullptr || targ == nullptr || targ->getOwner() == player->getPName()) return false;
+    for (auto t : player->getTerritory()) {
+        if (targ->isAdjacent(*t)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+// execute
 bool Bomb::execute() const {
     if (!validate()) return false;
-    const_cast<Bomb*>(this)->notify();
+
+    else {
+        targ->setArmies(targ->getArmies() / 2);
+    }
+    const_cast<Bomb*>(this)->notify(); //added for part 5
     return true;
+}
+Bomb* Bomb::clone() const {
+    return new Bomb(*this);
 }
 
 std::string Bomb::stringToLog() const { return "ORDER_EXECUTED | Bomb"; }
@@ -237,11 +291,20 @@ void      Blockade::setPlayer(Player p) { Orders::setPlayer(p); }
 Territory Blockade::getTarg() const { return targ ? *targ : Territory(); }
 void      Blockade::setTarget(Territory t) { if (targ) *targ = t; }
 
-bool Blockade::validate() const { return player && targ; }
+// validate
+bool Blockade::validate() const {
+    if (player == nullptr || targ == nullptr) return false;
+    return targ->getOwner() == player->getPName();
+}
 
+// execute
 bool Blockade::execute() const {
     if (!validate()) return false;
-    const_cast<Blockade*>(this)->notify();
+    else {
+        targ->setArmies(targ->getArmies() * 2);
+        targ->setOwner("Neutral");
+    }
+    const_cast<Blockade*>(this)->notify();//added for part 5	
     return true;
 }
 
@@ -295,13 +358,20 @@ void      Airlift::setSource(Territory s) { if (source) *source = s; }
 int       Airlift::getArmynum() const { return armyNum ? *armyNum : 0; }
 void      Airlift::setArmynum(int n) { if (!armyNum) armyNum = new int(n); else *armyNum = n; }
 
+// validate
 bool Airlift::validate() const {
-    return player && targ && source && armyNum && *armyNum > 0;
+    if (player == nullptr || targ == nullptr || source == nullptr || *armyNum <= 0) return false;
+    return targ->getOwner() == player->getPName() && source->getOwner() == player->getPName() && targ->getArmies() >= getArmynum();
 }
 
+// execute
 bool Airlift::execute() const {
     if (!validate()) return false;
-    const_cast<Airlift*>(this)->notify();
+    else {
+        source->setArmies(source->getArmies() - *armyNum);
+        targ->setArmies(targ->getArmies() + *armyNum);
+    }
+    const_cast<Airlift*>(this)->notify();//added for part 5	
     return true;
 }
 
@@ -343,13 +413,17 @@ void   Negotiate::setPlayer(Player p) { Orders::setPlayer(p); }
 Player Negotiate::getTarget() const { return targ ? *targ : Player(); }
 void   Negotiate::setTarget(Player p) { if (targ) *targ = p; /* non-owning */ }
 
+// validate
 bool Negotiate::validate() const {
-    return player && targ && (targ != player);
+    if (player == nullptr || targ == nullptr) return false;
+    return targ != player;
 }
 
+// execute
 bool Negotiate::execute() const {
     if (!validate()) return false;
-    const_cast<Negotiate*>(this)->notify();
+
+    const_cast<Negotiate*>(this)->notify();//added for part 5
     return true;
 }
 
