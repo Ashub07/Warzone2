@@ -1,17 +1,15 @@
-#ifndef GAMEENGINE2_H
-#define GAMEENGINE2_H
+#ifndef GAMEENGINE_H
+#define GAMEENGINE_H
 
-#include <map>
 #include <string>
+#include <map>
 #include <vector>
+#include <unordered_map>
 #include "Map.h"
 #include "Player.h"
-#include "Orders.h"
 #include "Cards.h"
-#include "LoggingObserver.h"
+#include "Orders.h"
 
-// ================== Game States ==================
-// Enum representing the different states of the game
 enum class GameState {
     Start,
     MapLoaded,
@@ -24,43 +22,16 @@ enum class GameState {
     End
 };
 
-// ================== GameEngine ==================
-// Controls the main flow of the game and state transitions
-class GameEngine : public Subject, public ILoggable {
-private:
-    GameState state_;   // current state
-    std::map<GameState, std::map<std::string, GameState>> transitions_;  // transition table
-
-    MapLoader loader_;      // loads maps from file
-    Map* map_ = nullptr;    // pointer to the current map
-    std::vector<Player*> players_;   // players in the game
-
-    // Helpers
-    static std::string toLower(std::string s);
-    static std::string trim(const std::string& s);
-
-    // Internal methods to build and clear state
-    void buildTransitions();
-    void clearPlayers();
-
+class GameEngine {
 public:
-    // ===== Constructor =====
     GameEngine();
 
-    // ===== Accessors =====
-    std::string stateName() const;       // returns current state's name
-    GameState getState() const { return state_; }
-    GameState state() const { return state_; }
-    void setState(GameState newState) { // ✅ Added setter defined here
-         state_ = newState;                     
-         notify();                       //added notify() for part 5
-        }
+    std::string stateName() const;
+    GameState getState() const { return state; }
+    void setState(GameState newState) { state = newState; }
+    std::vector<std::string> availableCommands() const;
+    bool processCommand(const std::string& command);
 
-    // ===== Core Methods =====
-    bool processCommand(const std::string& in);        // process a command
-    std::vector<std::string> availableCommands() const; // list possible commands
-
-    // ===== State Handlers =====
     void onLoadMap();
     void onValidateMap();
     void onAddPlayer();
@@ -72,13 +43,24 @@ public:
     void onPlayAgain();
     void onEnd();
 
-    // ===== Helper =====
+private:
+    GameState state;
+    std::string mapFilename_;  // Added to store map filename
+
+    MapLoader loader;
+    Map* map;
+    std::vector<Player*> players;
+
+    std::unordered_map<GameState, std::map<std::string, GameState>> transitions;
+
+    void buildTransitions();
+    void clearPlayers();
     void distributeRoundRobin();
 
-    //----------A2----------//
-    void startupPhase();
-
-    std::string stringToLog() const override; // part5
+    static std::string toLower(std::string s);
+    static std::string trim(const std::string& s);
 };
 
-#endif // GAMEENGINE2_H
+void startupPhase();
+
+#endif

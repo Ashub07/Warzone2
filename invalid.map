@@ -1,0 +1,14 @@
+the invalid - [continents]
+ContinentA 1
+ContinentB 2
+
+[territories]
+1 TerrA 1 Neutral 5
+2 TerrB 1 Neutral 3
+2 TerrB 2 Neutral 3   ; invalid duplicate with different continent
+3 TerrC 2 Neutral 4
+
+[borders]
+1 2
+2 1 3
+3 2

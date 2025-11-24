@@ -11,25 +11,25 @@ class PlayerStrategy{
 //human player class
 class HumanPlayerStrategy : public PlayerStrategy{
     public:
-        void issueOrder(Player p, Map m);
-        std::vector<Territory*> toAttack(Map m, Player p);
-        std::vector<Territory*> toDefend(Player p);
+        void issueOrder();
+        void toAttack();
+        void toDefend();
 };
 
 //aggressive player class
 class AggressivePlayerStrategy : public PlayerStrategy{
     public:
-        void issueOrder(Player p, Map m);
-        std::vector<Territory*> toAttack(Map m, Player p);
-        std::vector<Territory*> toDefend(Player p);
+        void issueOrder();
+        void toAttack();
+        void toDefend();
 };
 
 //benevolent player class
 class BenevolentPlayerStrategy : public PlayerStrategy{
     public:
-        void issueOrder(Player p, Map m);
+        void issueOrder();
         void toAttack();
-        std::vector<Territory*> toDefend(Player p);
+        void toDefend();
 };
 
 //neutral player class

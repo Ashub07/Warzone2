@@ -30,6 +30,7 @@ enum class GameState {
 class GameEngine : public Subject, public ILoggable {
 private:
     GameState state_;   // current state
+    std::string mapFilename_;  //I added this to fix undefined file problem while fixing A2 for A3
     std::map<GameState, std::map<std::string, GameState>> transitions_;  // transition table
 
     MapLoader loader_;      // loads maps from file
@@ -74,9 +75,9 @@ public:
     std::vector<std::string> availableCommands() const; // list possible commands
 
     // ===== State Handlers =====
-    void onLoadMap();
-    void onValidateMap();
-    void onAddPlayer();
+    bool onLoadMap(const std::string& filename);
+    bool onValidateMap();
+    void onAddPlayer(const std::string& name);
     void onAssignCountries();
     void onIssueOrder();
     void onEndIssueOrders();

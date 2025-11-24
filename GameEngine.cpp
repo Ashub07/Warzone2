@@ -93,8 +93,9 @@ void GameEngine::buildTransitions() {
 
     // players added
     transitions_[GameState::PlayersAdded] = {
-        {"assigncountries", GameState::AssignReinforcement}
-    };
+    {"addplayer", GameState::PlayersAdded},          // stay in playersadded
+    {"gamestart", GameState::AssignReinforcement}    // go to assignreinforcement
+};
 
     // assign reinforcement
     transitions_[GameState::AssignReinforcement] = {
@@ -131,23 +132,41 @@ void GameEngine::buildTransitions() {
 bool GameEngine::processCommand(const std::string& in) {
     if (state_ == GameState::End) return false;
 
-    const auto cmd = toLower(trim(in));
-    if (cmd.empty()) return false;
+// Trim overall input
+    std::string trimmed = trim(in);
+    if (trimmed.empty()) return false;
 
-    // Lookup transition
+    // Split into command word + arguments
+    std::string cmdWord;
+    std::string args;
+
+    auto pos = trimmed.find(' ');
+    if (pos == std::string::npos) {
+        cmdWord = trimmed;
+        args = "";
+    } else {
+        cmdWord = trimmed.substr(0, pos);
+        args = trim(trimmed.substr(pos + 1));
+    }
+
+    const auto cmd = toLower(cmdWord);
+
+    // Lookup transition using ONLY the command word
     const auto itState = transitions_.find(state_);
     if (itState == transitions_.end()) return false;
+
     const auto itCmd = itState->second.find(cmd);
     if (itCmd == itState->second.end()) {
         std::cout << "Invalid command. No transition available from current state.\n";
         return false;
     }
-
-    // Perform side-effect for the command (before flipping state)
-    if      (state_ == GameState::Start && cmd == "loadmap")           onLoadMap();
-    else if (state_ == GameState::MapLoaded && cmd == "validatemap")   onValidateMap();
-    else if (state_ == GameState::MapValidated && cmd == "addplayer")  onAddPlayer();
-    else if (state_ == GameState::PlayersAdded && cmd == "assigncountries") onAssignCountries();
+    GameState nextState = itCmd->second;
+    bool success = true;
+    // Perform side-effect for the command (before flipping state) (also added some extra checks for reloading and a bool value)
+    if      (state_ == GameState::Start && cmd == "loadmap")        success = onLoadMap(args);
+    else if (state_ == GameState::MapLoaded && cmd == "validatemap")  success = onValidateMap();
+    else if ((state_ == GameState::MapValidated || state_ == GameState::PlayersAdded) && cmd == "addplayer") onAddPlayer(args); //changed to not hard code players now
+    else if (state_ == GameState::PlayersAdded && cmd == "gamestart") onAssignCountries();
     else if (state_ == GameState::AssignReinforcement && cmd == "issueorder") onIssueOrder();
     else if (state_ == GameState::IssueOrders && cmd == "endissueorders") onEndIssueOrders();
     else if (state_ == GameState::ExecuteOrders && cmd == "endexecorders") onEndExecOrders();
@@ -155,8 +174,14 @@ bool GameEngine::processCommand(const std::string& in) {
     else if (state_ == GameState::Win && cmd == "play")                    onPlayAgain();
     else if (state_ == GameState::Win && cmd == "end")                     onEnd();
 
-    // Transition
-    setState(itCmd->second);
+    //added a success check to transition to next state or not
+     if (!success) {
+        // side-effect failed (e.g., bad filename or invalid map) → do NOT change state
+        std::cout << "Command side-effect failed; state remains " << stateName() << "\n";
+        return false;
+    }
+
+    setState(nextState);
     std::cout << "Transitioned to state: " << stateName() << "\n";
     return true;
 }
@@ -179,24 +204,36 @@ std::vector<std::string> GameEngine::availableCommands() const {
  * Handles the "loadmap" command.
  *
  */
-void GameEngine::onLoadMap() {
-    const std::string path = "sample.map";
+bool GameEngine::onLoadMap(const std::string& path) { //changed to bool for fixing A2 for A3
+     
+    if (path.empty()) {
+        std::cout << "[loadmap] No filename provided.\n"; //no longer hard coded
+        return false;
+    }
     const bool ok = loader_.loadMap(path);
     map_ = loader_.getMap();
-    std::cout << (ok && map_ ? "[loadmap] Loaded " + path : "[loadmap] Failed to load " + path) << "\n";
+    if (ok && map_) {
+        std::cout << "[loadmap] Loaded " << path << "\n";
+        return true;
+    } else {
+        std::cout << "[loadmap] Failed to load " << path << "\n";
+        return false;
+    }
 }
 
 /**
  * Handles the "validatemap" command.
  *
  */
-void GameEngine::onValidateMap() {
+bool GameEngine::onValidateMap() {  //changed to bool for fixing A2 for A3
     if (!map_) {
         std::cout << "[validatemap] No map loaded.\n";
-        return;
+        return false;
     }
     const bool ok = map_->validate();
-    std::cout << (ok ? "[validatemap] Map is valid." : "[validatemap] Map is NOT valid.") << "\n";
+    std::cout << (ok ? "[validatemap] Map is valid.\n"
+                     : "[validatemap] Map is invalid.\n");
+    return ok;
 }
 
 /**
@@ -212,14 +249,34 @@ void GameEngine::clearPlayers() {
  * Handles the "addplayer" command.
  *
  */
-void GameEngine::onAddPlayer() {
-    clearPlayers();
+void GameEngine::onAddPlayer(const std::string& name) {
+    //clearPlayers();   removed this because we don't want to clear players on every call
+
+    if (name.empty()) {
+        std::cout << "[addplayer] No player name provided.\n";
+        return;
+    }
+
+    // 2–6 players constraint
+    if (players_.size() >= 6) {
+        std::cout << "[addplayer] Cannot add more than 6 players.\n";
+        return;
+    }
+
+    // prevent duplicate names
+    for (auto* p : players_) {
+        if (p->getPName() == name) {
+            std::cout << "[addplayer] Player '" << name << "' already exists.\n";
+            return;
+        }
+    }
 
     std::vector<Territory*> none;
-    players_.push_back(new Player("Alice", none, new Deck(), new OrdersList()));
-    players_.push_back(new Player("Bob",   none, new Deck(), new OrdersList()));
+    Player* p = new Player(name, none, new Deck(), new OrdersList());
+    players_.push_back(p);
 
-    std::cout << "[addplayer] Created " << players_.size() << " players.\n";
+    std::cout << "[addplayer] Added player " << name
+              << " (total " << players_.size() << ").\n";
 }
 
 /**
@@ -330,7 +387,7 @@ void GameEngine::startupPhase(){
     GameEngine engine1;
     
     //create map loader and load map file
-    engine1.onLoadMap();
+    engine1.onLoadMap("maps/valid_map1.map");
     //MapLoader loader;
     //std::string file1 = "maps/valid_map1.map";
     //loader.loadMap(file1);
@@ -340,7 +397,7 @@ void GameEngine::startupPhase(){
     engine1.onValidateMap();
 
     //addplayers
-    engine1.onAddPlayer();
+    engine1.onAddPlayer("Alice"); //given an argument for driver example
 
     //game start phase
     //assign territories to players
@@ -551,42 +608,27 @@ void GameEngine::executeOrdersPhase() {
         return;
     }
 
-// Round-robin: grab top order from each player's list and execute, repeat until all empty
-while (anyOrdersRemain()) {
-    for (auto* p : players_) {
-        OrdersList* ol = p->getOrder();
-        auto v = ol->getOrders();           // snapshot (vector of pointers)
-        if (v.empty()) continue;
+    // Round-robin: grab top order from each player's list and execute, repeat until all empty
+    while (anyOrdersRemain()) {
+        for (auto* p : players_) {
+            OrdersList* ol = p->getOrder();
+            auto v = ol->getOrders();           // snapshot (vector of pointers)
+            if (v.empty()) continue;
 
-        Orders* top = v.front();
-        if (top) {
-            bool ok = top->execute();
-			//checks for Advance order to allow extra card draw
-            if (ok == true && top->canDraw()==true && p->getOrderVal()==false) {
-                if (top->getPlayer() != nullptr && top->getTarg()->getOwner()==p->getPName()) {
-                    Deck* deck = top->getPlayer()->getDeck();
-                    Hand h;
-                    deck->draw(h);
-					p->setOrderVal(true);
-                    std::cout << "[executeOrders] " << top->getPlayer()->getPName()
-                              << " draws a card after executing " << typeid(*top).name() << "\n";
-				}
+            Orders* top = v.front();
+            if (top) {
+                bool ok = top->execute();
+                std::cout << "[executeOrders] " << p->getPName()
+                          << " executes " << typeid(*top).name()
+                          << " -> " << (ok ? "OK" : "INVALID") << "\n";
+                ol->remove(top); // also deletes the order
             }
-            std::cout << "[executeOrders] " << p->getPName()
-                      << " executes " << typeid(*top).name()
-                      << " -> " << (ok ? "OK" : "INVALID") << "\n";
-            ol->remove(top); // also deletes the order
         }
-    }
 
-    // Players with 0 territories are removed (per rules)
-    removeDefeatedPlayers();
-    if (checkWinAndMaybeEnterWinState()) return; // stop if someone won
-}
-//is for Advance order
-for (auto* p : players_) {
-    p->setOrderVal(false);
-}
+        // Players with 0 territories are removed (per rules)
+        removeDefeatedPlayers();
+        if (checkWinAndMaybeEnterWinState()) return; // stop if someone won
+    }
 
     // Loop back to reinforcement
     if (state_ == GameState::ExecuteOrders) {
@@ -594,4 +636,3 @@ for (auto* p : players_) {
         std::cout << "Transitioned to state: " << stateName() << "\n";
     }
 }
-

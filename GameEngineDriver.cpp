@@ -60,10 +60,15 @@ void testStartupPhase() {
  */
 void testMainGameLoop() {
     GameEngine engine;
-
-    engine.onLoadMap();
+    std::string mapfile;
+    std::string name;
+    std::cout<<"enter map to be loaded";
+    std::cin>>mapfile;
+    engine.onLoadMap(mapfile);
     engine.onValidateMap();
-    engine.onAddPlayer();
+    std::cout<<"enter player to be added";
+    std::cin>>name;
+    engine.onAddPlayer(name);
     engine.onAssignCountries();
 
     std::cout << "\n=== TURN 1 ===\n";

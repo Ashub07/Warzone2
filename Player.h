@@ -25,14 +25,12 @@ public:
     std::vector<Territory*> getTerritory() const;
     Deck* getDeck() const;             // returns pointer to Deck
     OrdersList* getOrder() const;      // returns pointer to OrdersList
-    bool* getOrderVal() ;
 
     // ===== Setters =====
     void setPName(std::string pName);
     void setTerritory(std::vector<Territory*> Pterritories);
     void setDeck(Deck* deck);                // sets Deck contents
     void setOrdersList(OrdersList* order);   // sets OrdersList contents
-    void setOrderVal(bool* b);
 
     // ===== Gameplay methods =====
     std::vector<Territory*> toDefend(Player p);   // territories to defend
@@ -51,5 +49,4 @@ private:
     Deck* deck;                                  // deck of cards
     OrdersList* order;                           // player's orders list
     int* reinforcementPool;
-    bool* orderVal;
 };

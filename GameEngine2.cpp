@@ -1,9 +1,8 @@
-#include "GameEngine2.h" //changed from GameEngine to GameEngine2
-#include "Orders.h"
+#include "GameEngine.h"
 #include <algorithm>
 #include <cctype>
 #include <iostream>
-#include "LoggingObserver.h"
+#include <sstream>
 
 namespace {
     // Map states to their display name.
@@ -23,7 +22,7 @@ namespace {
     }
 }
 
-GameEngine::GameEngine() : state_(GameState::Start) {
+GameEngine::GameEngine() : state_(GameState::Start), mapFilename_("") {
     buildTransitions();
 }
 
@@ -52,111 +51,116 @@ std::string GameEngine::trim(const std::string& s) {
 
 // Initialize the transition table
 void GameEngine::buildTransitions() {
-    //   start --loadmap--> map loaded
-    //   map loaded --validatemap--> map validated
-    //   map validated --addplayer--> players added
-    //   players added --assigncountries--> assign reinforcement
-    //   assign reinforcement --issueorder--> issue orders
-    //   issue orders --endissueorders--> execute orders
-    //   execute orders --endexecorders--> assign reinforcement
-    //   execute orders --win--> win
-    //   win --play--> assign reinforcement
-    //   win --end--> end
-
     transitions_.clear();
 
-    // start
-    transitions_[GameState::Start] = {
-        {"loadmap", GameState::MapLoaded}
-    };
-
-    // map loaded
-    transitions_[GameState::MapLoaded] = {
-        {"validatemap", GameState::MapValidated}
-    };
-
-    // map validated
-    transitions_[GameState::MapValidated] = {
-        {"addplayer", GameState::PlayersAdded}
-    };
-
-    // players added
-    transitions_[GameState::PlayersAdded] = {
-        {"assigncountries", GameState::AssignReinforcement}
-    };
-
-    // assign reinforcement
-    transitions_[GameState::AssignReinforcement] = {
-        {"issueorder", GameState::IssueOrders}
-    };
-
-    // issue orders
-    transitions_[GameState::IssueOrders] = {
-        {"endissueorders", GameState::ExecuteOrders}
-    };
-
-    // execute orders
+    transitions_[GameState::Start] = {{"loadmap", GameState::MapLoaded}};
+    transitions_[GameState::MapLoaded] = {{"validatemap", GameState::MapValidated}};
+    transitions_[GameState::MapValidated] = {{"addplayer", GameState::PlayersAdded}};
+    transitions_[GameState::PlayersAdded] = {{"assigncountries", GameState::AssignReinforcement}};
+    transitions_[GameState::AssignReinforcement] = {{"issueorder", GameState::IssueOrders}};
+    transitions_[GameState::IssueOrders] = {{"endissueorders", GameState::ExecuteOrders}};
     transitions_[GameState::ExecuteOrders] = {
         {"endexecorders", GameState::AssignReinforcement},
-        {"win",           GameState::Win}
+        {"win", GameState::Win}
     };
-
-    // win
     transitions_[GameState::Win] = {
         {"play", GameState::AssignReinforcement},
-        {"end",  GameState::End}
+        {"end", GameState::End}
     };
-
-    // end has no outgoing transitions
     transitions_[GameState::End] = {};
 }
 
 /**
  * Attempt to apply a command to the current state.
- *
- * @param command Command string
- * @return true if a valid transition exists; false if rejected.
  */
 bool GameEngine::processCommand(const std::string& in) {
     if (state_ == GameState::End) return false;
 
-    const auto cmd = toLower(trim(in));
-    if (cmd.empty()) return false;
+    std::string trimmedInput = trim(in);
+    if (trimmedInput.empty()) return false;
 
-    // Lookup transition
+    // Parse command and arguments
+    std::string cmd;
+    std::string args;
+    size_t spacePos = trimmedInput.find(' ');
+
+    if (spacePos != std::string::npos) {
+        cmd = toLower(trimmedInput.substr(0, spacePos));
+        args = trim(trimmedInput.substr(spacePos + 1));
+    } else {
+        cmd = toLower(trimmedInput);
+    }
+
+    // Lookup transition using just the command name (not args)
     const auto itState = transitions_.find(state_);
     if (itState == transitions_.end()) return false;
     const auto itCmd = itState->second.find(cmd);
     if (itCmd == itState->second.end()) {
-        std::cout << "Invalid command. No transition available from current state.\n";
+        std::cout << "Invalid command '" << cmd << "'. No transition available from current state.\n";
         return false;
     }
 
-    // Perform side-effect for the command (before flipping state)
-    if      (state_ == GameState::Start && cmd == "loadmap")           onLoadMap();
-    else if (state_ == GameState::MapLoaded && cmd == "validatemap")   onValidateMap();
-    else if (state_ == GameState::MapValidated && cmd == "addplayer")  onAddPlayer();
-    else if (state_ == GameState::PlayersAdded && cmd == "assigncountries") onAssignCountries();
-    else if (state_ == GameState::AssignReinforcement && cmd == "issueorder") onIssueOrder();
-    else if (state_ == GameState::IssueOrders && cmd == "endissueorders") onEndIssueOrders();
-    else if (state_ == GameState::ExecuteOrders && cmd == "endexecorders") onEndExecOrders();
-    else if (state_ == GameState::ExecuteOrders && cmd == "win")           onWin();
-    else if (state_ == GameState::Win && cmd == "play")                    onPlayAgain();
-    else if (state_ == GameState::Win && cmd == "end")                     onEnd();
+    // Track success
+    bool success = false;
 
-    // Transition
-   //Changed for part 5
-    setState(itCmd->second);
-std::cout << "Transitioned to state: " << stateName() << "\n";
-return true;
+    // Perform side-effect for the command
+    if (state_ == GameState::Start && cmd == "loadmap") {
+        if (args.empty()) {
+            std::cout << "Error: loadmap requires a filename. Usage: loadmap <filename>\n";
+            return false;
+        }
+        mapFilename_ = args;
+        onLoadMap();
+        success = (map_ != nullptr);
+    }
+    else if (state_ == GameState::MapLoaded && cmd == "validatemap") {
+        onValidateMap();
+        success = (map_ != nullptr && map_->validate());
+    }
+    else if (state_ == GameState::MapValidated && cmd == "addplayer") {
+        onAddPlayer();
+        success = true;
+    }
+    else if (state_ == GameState::PlayersAdded && cmd == "assigncountries") {
+        onAssignCountries();
+        success = !players_.empty();
+    }
+    else if (state_ == GameState::AssignReinforcement && cmd == "issueorder") {
+        onIssueOrder();
+        success = true;
+    }
+    else if (state_ == GameState::IssueOrders && cmd == "endissueorders") {
+        onEndIssueOrders();
+        success = true;
+    }
+    else if (state_ == GameState::ExecuteOrders && cmd == "endexecorders") {
+        onEndExecOrders();
+        success = true;
+    }
+    else if (state_ == GameState::ExecuteOrders && cmd == "win") {
+        onWin();
+        success = true;
+    }
+    else if (state_ == GameState::Win && cmd == "play") {
+        onPlayAgain();
+        success = true;
+    }
+    else if (state_ == GameState::Win && cmd == "end") {
+        onEnd();
+        success = true;
+    }
 
+    // Only transition if successful
+    if (success) {
+        state_ = itCmd->second;
+        std::cout << "Transitioned to state: " << stateName() << "\n";
+        return true;
+    } else {
+        std::cout << "Command failed. Remaining in state: " << stateName() << "\n";
+        return false;
+    }
 }
 
-/**
- * Show the possible commands from the current state.
- *
- * @return A list of command strings that are accepted in the current state.
- */
 std::vector<std::string> GameEngine::availableCommands() const {
     std::vector<std::string> cmds;
     const auto it = transitions_.find(state_);
@@ -166,49 +170,49 @@ std::vector<std::string> GameEngine::availableCommands() const {
     return cmds;
 }
 
-/**
- * Handles the "loadmap" command.
- *
- */
 void GameEngine::onLoadMap() {
-    const std::string path = "sample.map";
-    const bool ok = loader_.loadMap(path);
-    map_ = loader_.getMap();
-    std::cout << (ok && map_ ? "[loadmap] Loaded " + path : "[loadmap] Failed to load " + path) << "\n";
+    if (mapFilename_.empty()) {
+        std::cout << "[loadmap] ERROR: No map file specified.\n";
+        map_ = nullptr;
+        return;
+    }
+
+    std::cout << "[loadmap] Attempting to load: " << mapFilename_ << "\n";
+    const bool ok = loader_.loadMap(mapFilename_);
+
+    if (ok) {
+        map_ = loader_.getMap();
+        if (map_) {
+            std::cout << "[loadmap] SUCCESS: Loaded " << mapFilename_ << "\n";
+        } else {
+            std::cout << "[loadmap] ERROR: Map loaded but getMap() returned nullptr.\n";
+        }
+    } else {
+        map_ = nullptr;
+        std::cout << "[loadmap] ERROR: Failed to load '" << mapFilename_ << "'.\n";
+    }
 }
 
-/**
- * Handles the "validatemap" command.
- *
- */
 void GameEngine::onValidateMap() {
     if (!map_) {
-        std::cout << "[validatemap] No map loaded.\n";
+        std::cout << "[validatemap] ERROR: No map loaded.\n";
         return;
     }
     const bool ok = map_->validate();
-    std::cout << (ok ? "[validatemap] Map is valid." : "[validatemap] Map is NOT valid.") << "\n";
+    std::cout << (ok ? "[validatemap] SUCCESS: Map is valid." : "[validatemap] ERROR: Map is NOT valid.") << "\n";
 }
 
-/**
- * Releases all dynamically allocated Player objects.
- *
- */
 void GameEngine::clearPlayers() {
     for (auto* p : players_) delete p;
     players_.clear();
 }
 
-/**
- * Handles the "addplayer" command.
- *
- */
 void GameEngine::onAddPlayer() {
     clearPlayers();
 
     std::vector<Territory*> none;
-    Deck* d = new Deck();              // FIX: allocate pointer
-    OrdersList* ol = new OrdersList(); // FIX: allocate pointer
+    Deck* d = new Deck();
+    OrdersList* ol = new OrdersList();
 
     players_.push_back(new Player("Alice", none, d, ol));
     players_.push_back(new Player("Bob",   none, d, ol));
@@ -216,10 +220,6 @@ void GameEngine::onAddPlayer() {
     std::cout << "[addplayer] Created " << players_.size() << " players.\n";
 }
 
-/**
- * Assigns territories to players in round-robin fashion.
- *
- */
 void GameEngine::distributeRoundRobin() {
     if (!map_) return;
     auto* terrs = map_->getTerritories();
@@ -235,10 +235,6 @@ void GameEngine::distributeRoundRobin() {
     }
 }
 
-/**
- * Handles the "assigncountries" command.
- *
- */
 void GameEngine::onAssignCountries() {
     if (!map_) {
         std::cout << "[assigncountries] No map loaded.\n";
@@ -252,10 +248,6 @@ void GameEngine::onAssignCountries() {
     std::cout << "[assigncountries] Territories distributed to players.\n";
 }
 
-/**
- * Handles the "issueorder" command.
- *
- */
 void GameEngine::onIssueOrder() {
     for (auto* p : players_) {
         auto owned = p->getTerritory();
@@ -264,102 +256,52 @@ void GameEngine::onIssueOrder() {
         int* one = new int(1);
         Orders* o = new Deploy(p, owned.front(), one);
 
-        OrdersList* ol = p->getOrder();   // FIX: pointer
-        ol->add(o);                       // FIX: call on pointer
-        p->setOrdersList(ol);             // FIX: set pointer
+        OrdersList* ol = p->getOrder();
+        ol->add(o);
+        p->setOrdersList(ol);
 
         std::cout << "[issueorder] " << p->getPName()
                   << " issued Deploy(1) to " << owned.front()->getName() << "\n";
     }
 }
 
-/**
- * Handles the "endissueorders" command.
- *
- */
 void GameEngine::onEndIssueOrders() {
     std::cout << "[endissueorders] Orders locked for execution.\n";
 }
 
-/**
- * Handles the "endexecorders" command.
- *
- */
 void GameEngine::onEndExecOrders() {
     std::cout << "[endexecorders] Execution completed (placeholder). Returning to reinforcement.\n";
 }
 
-/**
- * Handles the "win" command.
- *
- */
 void GameEngine::onWin() {
     std::cout << "[win] A winning condition was signaled.\n";
 }
 
-/**
- * Handles the "play" command from the Win state.
- *
- */
 void GameEngine::onPlayAgain() {
     std::cout << "[play] New play cycle requested. Reinforcements will be assigned.\n";
 }
 
-/**
- * Handles the "end" command.
- *
- */
 void GameEngine::onEnd() {
     std::cout << "[end] Terminating program.\n";
     clearPlayers();
 }
 
-
-//----------------------------------------------------------------------//
-//--------------------------------A2------------------------------------//
-//----------------------------------------------------------------------//
-
 void startupPhase(){
-    //create game engine an validate map
     GameEngine engine1;
-    
-    //create map loader and load map file
     engine1.onLoadMap();
-    //MapLoader loader;
-    //std::string file1 = "maps/valid_map1.map";
-    //loader.loadMap(file1);
-
-
-    //validate the map
     engine1.onValidateMap();
-
-    //addplayers
     engine1.onAddPlayer();
-
-    //game start phase
-    //assign territories to players
     engine1.onAssignCountries();
-    
-    //player random order
 
-    //let player draw 2 cards
     std::vector<Player *> players_;
     Deck* deck;
     Hand h;
     for(int i=0; i<players_.size(); i++){
         deck = players_[i]->getDeck();
         deck->draw(h);
-        std::cout<<"Cards drawn\n" << deck; //not getting done
+        std::cout<<"Cards drawn\n" << deck;
     }
-    
-    //switch to play phase
+
     engine1.onIssueOrder();
     std::cout<<"Play started";
-    
 }
-
-std::string GameEngine::stringToLog() const {
-    // You can make this more detailed later if you want
-    return std::string("STATE_CHANGE | ") + stateName();
-}
-

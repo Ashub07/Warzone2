@@ -1,5 +1,4 @@
 #include "CommandProcessing.h"
-#include "GameEngine.h" //added by part 5
 using namespace std;
 
 /*
@@ -8,19 +7,16 @@ using namespace std;
  ---------------------------------------------------------
 */
 
-// Regular constructor
 Command::Command(string cmd) {
     command = new string(cmd);
     effect = new string("");
 }
 
-// Copy constructor
 Command::Command(const Command& other) {
     command = new string(*other.command);
     effect = new string(*other.effect);
 }
 
-// Assignment operator
 Command& Command::operator=(const Command& other) {
     if (this != &other) {
         delete command;
@@ -31,23 +27,19 @@ Command& Command::operator=(const Command& other) {
     return *this;
 }
 
-// Destructor
 Command::~Command() {
     delete command;
     delete effect;
 }
 
-// Accessors
 string Command::getCommand() const { return *command; }
 string Command::getEffect() const { return *effect; }
 
-// Save the command effect
 void Command::saveEffect(const string& eff) {
     *effect = eff;
-    notify(); //logs here added for part 5
+    notify(); //call notify to record effect for part 5
 }
 
-// Stream output
 ostream& operator<<(ostream& out, const Command& c) {
     out << "Command: " << *c.command << " | Effect: " << *c.effect;
     return out;
@@ -58,20 +50,17 @@ std::string Command::stringToLog() const {       // Define for part 5
 }
 
 
-
 /*
  ---------------------------------------------------------
                  CommandProcessor Class
  ---------------------------------------------------------
 */
 
-// Default constructor
 CommandProcessor::CommandProcessor() {
     commands = new vector<Command*>();
     inputSource = new string("console");
 }
 
-// Copy constructor
 CommandProcessor::CommandProcessor(const CommandProcessor& other) {
     inputSource = new string(*other.inputSource);
     commands = new vector<Command*>();
@@ -79,7 +68,6 @@ CommandProcessor::CommandProcessor(const CommandProcessor& other) {
         commands->push_back(new Command(*c));
 }
 
-// Assignment operator
 CommandProcessor& CommandProcessor::operator=(const CommandProcessor& other) {
     if (this != &other) {
         delete inputSource;
@@ -94,14 +82,12 @@ CommandProcessor& CommandProcessor::operator=(const CommandProcessor& other) {
     return *this;
 }
 
-// Destructor
 CommandProcessor::~CommandProcessor() {
     delete inputSource;
     for (auto c : *commands) delete c;
     delete commands;
 }
 
-// Reads command from console (default)
 string CommandProcessor::readCommand() {
     string cmd;
     cout << "Enter command: ";
@@ -109,16 +95,13 @@ string CommandProcessor::readCommand() {
     return cmd;
 }
 
-// Saves command to the list
 void CommandProcessor::saveCommand(const string& cmd) {
     Command* c = new Command(cmd);
     commands->push_back(c);
     lastMessage = "COMMAND | " + cmd;
-    notify(); // Logs here added for part 5
-
+    notify(); //call notify to save command for part 5
 }
 
-// Returns command from input source and saves it
 string CommandProcessor::getCommand() {
     string cmd = readCommand();
     saveCommand(cmd);
@@ -129,9 +112,6 @@ string CommandProcessor::getCommand() {
 /*
  ---------------------------------------------------------
          Helper Function for GameState Conversion
- ---------------------------------------------------------
- - Converts the GameEngine's enum GameState to string
-   for easier comparison during validation
  ---------------------------------------------------------
 */
 string gameStateToString(GameState state) {
@@ -151,66 +131,90 @@ string gameStateToString(GameState state) {
 
 /*
  ---------------------------------------------------------
-          Command Validation Function
+          FIXED Command Validation Function
  ---------------------------------------------------------
- - Checks if the command is valid for the current state
- - Matches against the Assignment 2 specification
+ - Only checks if command is valid for current state
+ - Does NOT change the state (GameEngine does that)
  ---------------------------------------------------------
 */
 bool CommandProcessor::validate(const string& cmd, GameEngine* game) {
     string state = gameStateToString(game->getState());
     bool valid = false;
+    // ---- split cmd into keyword + arguments ----
+    string trimmed = cmd;
 
-    // Validation + state transitions
-    if (state == "start" && cmd.find("loadmap") == 0) {
+    // simple left trim (optional, but nice)
+    auto firstNon = trimmed.find_first_not_of(" \t");
+    if (firstNon != string::npos)
+        trimmed = trimmed.substr(firstNon);
+    else
+        trimmed.clear();
+
+    string keyword;
+    string args;
+
+    auto spacePos = trimmed.find(' ');
+    if (spacePos == string::npos) {
+        keyword = trimmed;           // e.g. "loadmap"
+        args = "";                   // no args
+    } else {
+        keyword = trimmed.substr(0, spacePos);      // "loadmap"
+        args    = trimmed.substr(spacePos + 1);     // "mymap.map" (maybe with spaces)
+    }
+
+    bool hasArgs = (args.find_first_not_of(" \t") != string::npos);
+
+
+    // Only validate - don't change state
+    if (state == "start" && keyword == "loadmap" && hasArgs) {
         valid = true;
-        game->setState(GameState::MapLoaded);
     }
     else if (state == "maploaded" && cmd == "validatemap") {
         valid = true;
-        game->setState(GameState::MapValidated);
     }
     else if (state == "maploaded" && cmd.find("loadmap") == 0) {
         valid = true; // allows reloading a map
-        game->setState(GameState::MapLoaded);
     }
     else if (state == "mapvalidated" && cmd.find("addplayer") == 0) {
         valid = true;
-        game->setState(GameState::PlayersAdded);
     }
     else if (state == "playersadded" && cmd.find("addplayer") == 0) {
-        valid = true; // remain in PlayersAdded
-        game->setState(GameState::PlayersAdded);
+        valid = true;
     }
     else if (state == "playersadded" && cmd == "gamestart") {
         valid = true;
-        game->setState(GameState::AssignReinforcement);
     }
     else if (state == "win" && cmd == "replay") {
         valid = true;
-        game->setState(GameState::Start);
     }
     else if (state == "win" && cmd == "quit") {
         valid = true;
         cout << "\nGame ended.\n";
     }
 
-    // Record the outcome
-    if (valid)
-        commands->back()->saveEffect("Command validated, state changed to " +
-                                     gameStateToString(game->getState()));
-    else
-        commands->back()->saveEffect("Invalid command for current game state.");
+    // Record the outcome WITHOUT changing state
+    if (valid) {
+        // Let GameEngine process the command
+        bool executed = game->processCommand(cmd);
+        if (executed) {
+            commands->back()->saveEffect("VALID | Effect: Command executed, state is now " +
+                                         gameStateToString(game->getState()));
+        } else {
+            commands->back()->saveEffect("VALID | Effect: Command valid but execution failed, state remains " +
+                                         gameStateToString(game->getState()));
+        }
+    }
+    else {
+        commands->back()->saveEffect("INVALID | Effect: Command not allowed in state " + state);
+    }
 
     return valid;
 }
 
-// Return list of stored commands
 vector<Command*>* CommandProcessor::getCommands() const {
     return commands;
 }
 
-// Stream output
 ostream& operator<<(ostream& out, const CommandProcessor& cp) {
     out << "CommandProcessor [Source=" << *cp.inputSource
         << ", Commands stored=" << cp.commands->size() << "]";
@@ -228,7 +232,6 @@ std::string CommandProcessor::stringToLog() const {       // Define for part 5
  ---------------------------------------------------------
 */
 
-// Constructor that opens a file
 FileCommandProcessorAdapter::FileCommandProcessorAdapter(string filename) {
     file = new ifstream(filename);
     inputSource = new string("file");
@@ -237,16 +240,14 @@ FileCommandProcessorAdapter::FileCommandProcessorAdapter(string filename) {
         cout << "Error: Could not open file '" << filename << "'." << endl;
 }
 
-// Reads next command from file
 string FileCommandProcessorAdapter::readCommand() {
     string cmd;
     if (file && getline(*file, cmd))
         return cmd;
     else
-        return "EOF"; // end of file
+        return "EOF";
 }
 
-// Destructor closes the file
 FileCommandProcessorAdapter::~FileCommandProcessorAdapter() {
     if (file) {
         if (file->is_open())

@@ -36,7 +36,7 @@ void testLoggingObserver() {
     d->execute();                 // -> ORDER_EXECUTED
 
     //Interactive loop to produce COMMAND/EFFECT/STATE lines
-    cout << "Enter commands (e.g., loadmap, validatemap, addplayer p, gamestart, replay, quit)\n";
+    cout << "Enter commands (e.g., loadmap <filename>, validatemap, addplayer p, gamestart, replay, quit)\n";
     while (true) {
         string cmd = cp.getCommand();                 // -> COMMAND
         if (!cp.getCommands()->empty())
@@ -46,6 +46,10 @@ void testLoggingObserver() {
     }
 
     cout << "Done. Check 'gamelog.txt'.\n";
+}
+
+main(){
+    testLoggingObserver();
 }
 
 
