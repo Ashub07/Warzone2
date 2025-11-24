@@ -62,6 +62,10 @@ OrdersList* Player::getOrder() const {
     return order;
 }
 
+bool* Player::getOrderlVal() const{
+    return orderVal;
+}
+
 // ================= Setters =================
 
 // setter for player name
@@ -82,6 +86,10 @@ void Player::setDeck(Deck* deck) {
 // setter for orders list
 void Player::setOrdersList(OrdersList* order) {
     *(this->order) = *order; // deep copy contents of provided orders list
+}
+
+void Player::setOrderVal(bool* b){
+    *(this->orderVal) = *b;
 }
 
 // ================= Gameplay Methods =================
