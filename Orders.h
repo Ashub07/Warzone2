@@ -38,6 +38,7 @@ public:
 	//methods needed:
 	virtual bool validate() const = 0;
 	virtual bool execute() const = 0;
+	virtual bool canDraw() const;
 	virtual Orders* clone() const = 0;
 };
 
@@ -113,6 +114,7 @@ public:
 	//methods needed:
 	virtual bool validate() const;
 	virtual bool execute() const;
+	virtual bool canDraw() const;
 	virtual Advance* clone() const;
 
 	std::string stringToLog() const override; //part 5
@@ -289,3 +291,4 @@ public:
 
 	std::string stringToLog() const override; //part 5
 };
+
