@@ -551,27 +551,42 @@ void GameEngine::executeOrdersPhase() {
         return;
     }
 
-    // Round-robin: grab top order from each player's list and execute, repeat until all empty
-    while (anyOrdersRemain()) {
-        for (auto* p : players_) {
-            OrdersList* ol = p->getOrder();
-            auto v = ol->getOrders();           // snapshot (vector of pointers)
-            if (v.empty()) continue;
+// Round-robin: grab top order from each player's list and execute, repeat until all empty
+while (anyOrdersRemain()) {
+    for (auto* p : players_) {
+        OrdersList* ol = p->getOrder();
+        auto v = ol->getOrders();           // snapshot (vector of pointers)
+        if (v.empty()) continue;
 
-            Orders* top = v.front();
-            if (top) {
-                bool ok = top->execute();
-                std::cout << "[executeOrders] " << p->getPName()
-                          << " executes " << typeid(*top).name()
-                          << " -> " << (ok ? "OK" : "INVALID") << "\n";
-                ol->remove(top); // also deletes the order
+        Orders* top = v.front();
+        if (top) {
+            bool ok = top->execute();
+			//checks for Advance order to allow extra card draw
+            if (ok == true && top->canDraw()==true && p->getOrderVal()==false) {
+                if (top->getPlayer() != nullptr && top->getTarg()->getOwner()==p->getPName()) {
+                    Deck* deck = top->getPlayer()->getDeck();
+                    Hand h;
+                    deck->draw(h);
+					p->setOrderVal(true);
+                    std::cout << "[executeOrders] " << top->getPlayer()->getPName()
+                              << " draws a card after executing " << typeid(*top).name() << "\n";
+				}
             }
+            std::cout << "[executeOrders] " << p->getPName()
+                      << " executes " << typeid(*top).name()
+                      << " -> " << (ok ? "OK" : "INVALID") << "\n";
+            ol->remove(top); // also deletes the order
         }
-
-        // Players with 0 territories are removed (per rules)
-        removeDefeatedPlayers();
-        if (checkWinAndMaybeEnterWinState()) return; // stop if someone won
     }
+
+    // Players with 0 territories are removed (per rules)
+    removeDefeatedPlayers();
+    if (checkWinAndMaybeEnterWinState()) return; // stop if someone won
+}
+//is for Advance order
+for (auto* p : players_) {
+    p->setOrderVal(false);
+}
 
     // Loop back to reinforcement
     if (state_ == GameState::ExecuteOrders) {
@@ -579,3 +594,4 @@ void GameEngine::executeOrdersPhase() {
         std::cout << "Transitioned to state: " << stateName() << "\n";
     }
 }
+
