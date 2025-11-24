@@ -14,6 +14,7 @@ Player::Player() {
     Pterritories = new std::vector<Territory*>;
     deck = new Deck;              // allocate Deck on heap
     order = new OrdersList;       // allocate OrdersList on heap
+    *orderVal = false;
 }
 
 // parameterized constructor
@@ -22,6 +23,7 @@ Player::Player(std::string pName1, std::vector<Territory*> t1, Deck* d1, OrdersL
     this->Pterritories = new std::vector<Territory*>(t1);
     this->deck = d1;       // use provided Deck pointer
     this->order = o1;      // use provided OrdersList pointer
+    *orderVal = false;
 }
 
 // copy constructor
@@ -30,6 +32,7 @@ Player::Player(const Player& other) {
     Pterritories = new std::vector<Territory*>(*other.Pterritories);
     deck = new Deck(*other.deck);
     order = new OrdersList(*other.order);
+    *orderVal = false;
 }
 
 // destructor
@@ -38,6 +41,7 @@ Player::~Player() {
     delete Pterritories;
     delete deck;
     delete order;
+    delete orderVal;
 }
 
 // ================= Getters =================
