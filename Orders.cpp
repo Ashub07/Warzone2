@@ -41,6 +41,10 @@ void Orders::setPlayer(Player p) {
     if (player) *player = p;
 }
 
+bool Orders::canDraw() const {
+	return false;
+}
+
 // =================== Deploy ===================
 // Non-owning: targ is a borrowed Territory* from the Map.
 // Owned: armyNum is heap int created by caller; we assume ownership and delete.
@@ -189,6 +193,10 @@ bool Advance::execute() const {
 
     }
     const_cast<Advance*>(this)->notify(); //added for part 5	
+    return true;
+}
+
+bool Advance::canDraw() const {
     return true;
 }
 
