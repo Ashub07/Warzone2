@@ -5,6 +5,7 @@
 #include "Orders.h"
 #include "Cards.h"
 #include <list>
+#include <algorithm> 
 
 
 
@@ -332,11 +333,10 @@ void BenevolentPlayerStrategy::issueOrder(Player p, Map m){
 }
 
 //benevolent player to attack function
-void BenevolentPlayerStrategy::toAttack(){
-    //this player doesn't attack so do nothing
-    std::cout << "no attack";
-
+std::vector<Territory*> BenevolentPlayerStrategy::toAttack(Map /*m*/, Player /*p*/) {
+    return {}; // benevolent doesn’t attack
 }
+
 
 //benevolent player to defend function
 std::vector<Territory*> BenevolentPlayerStrategy::toDefend(Player p){
@@ -363,8 +363,155 @@ std::vector<Territory*> BenevolentPlayerStrategy::toDefend(Player p){
 //---------NEUTRAL PLAYER-------------
 //------------------------------------
 
+// neutral player issue order function
+void NeutralPlayerStrategy::issueOrder(Player p, Map m) {
+    // Neutral player never issues any orders or uses cards.
+    std::cout << "Neutral player \"" << p.getPName()
+              << "\" does not issue any orders this turn (remains passive)." 
+              << std::endl;
+
+}
+
+// neutral player to attack function
+std::vector<Territory*> NeutralPlayerStrategy::toAttack(Map m, Player p) {
+    // Neutral players never attack.
+    std::cout << "Neutral player \"" << p.getPName()
+              << "\" does not plan any attacks." << std::endl;
+
+    std::vector<Territory*> empty;
+    return empty;
+}
+
+// neutral player to defend function
+std::vector<Territory*> NeutralPlayerStrategy::toDefend(Player p) {
+    // For a neutral player, just return all of its owned territories.
+    std::vector<Territory*> pt = p.getTerritory();
+
+    std::vector<Territory*> defend;
+    for (int i = 0; i < pt.size(); ++i) {
+        defend.push_back(pt[i]);
+    }
+
+    return defend;
+}
 
 
 //------------------------------------
 //---------CHEATER PLAYER-------------
 //------------------------------------
+
+// cheater player issue order function
+void CheaterPlayerStrategy::issueOrder(Player p, Map m) {
+    // The cheater does not create normal orders or use cards.
+    // Instead, once per turn it automatically conquers all territories that are adjacent to its own territories.
+
+    // Copy of the map and player (contain pointers to shared game state).
+    Map map = m;
+    Player p1 = p;
+
+    std::string cheaterName = p1.getPName();
+
+    // Determine which territories will be "cheated" (adjacent enemy territories).
+    std::vector<Territory*> targets = toAttack(map, p1);
+
+    if (targets.empty()) {
+        std::cout << "Cheater player \"" << cheaterName
+                  << "\" has no adjacent enemy territories to automatically conquer."
+                  << std::endl;
+        return;
+    }
+
+    std::cout << "Cheater player \"" << cheaterName
+              << "\" automatically conquers all adjacent enemy territories:" 
+              << std::endl;
+
+    // For each target, switch ownership to the cheater.
+    for (int i = 0; i < targets.size(); ++i) {
+        Territory* t = targets[i];
+
+        std::string previousOwner = t->getOwner();
+        if (previousOwner == cheaterName) {
+            continue;
+        }
+
+        std::cout << " - " << t->getName()
+                  << " (previously owned by \"" << previousOwner << "\") "
+                  << "is now owned by \"" << cheaterName << "\"." << std::endl;
+
+        // Change territory owner to the cheater.
+        t->setOwner(cheaterName);
+    }
+
+    // No Orders objects or cards are created/used here on purpose.
+}
+
+// cheater player to attack function
+std::vector<Territory*> CheaterPlayerStrategy::toAttack(Map m, Player p) {
+    // Build a list of all enemy territories adjacent to any territory owned by the cheater player.
+    std::vector<Territory*> result;
+
+    // Get all territories from the map.
+    std::vector<Territory*>* terris = m.getTerritories();
+
+    std::string cheaterName = p.getPName();
+
+    if (terris == nullptr) {
+        return result;
+    }
+
+    // For each territory in the map, find those owned by the cheater.
+    for (int i = 0; i < terris->size(); ++i) {
+        Territory* myT = terris->at(i);
+        if (myT == nullptr) {
+            continue;
+        }
+
+        // Only consider territories actually owned by this cheater.
+        if (myT->getOwner() != cheaterName) {
+            continue;
+        }
+
+        // For each such territory, inspect its adjacent territories.
+        std::vector<Territory*>* adj = myT->getAdjacentTerritories();
+        if (adj == nullptr) {
+            continue;
+        }
+
+        for (int j = 0; j < adj->size(); ++j) {
+            Territory* neighbor = adj->at(j);
+            if (neighbor == nullptr) {
+                continue;
+            }
+
+            // If neighbor is not owned by the cheater, it is a target.
+            if (neighbor->getOwner() != cheaterName) {
+                // Avoid duplicates in the result list.
+                if (std::find(result.begin(), result.end(), neighbor) == result.end()) {
+                    result.push_back(neighbor);
+                }
+            }
+        }
+    }
+
+    return result;
+}
+
+// cheater player to defend function
+std::vector<Territory*> CheaterPlayerStrategy::toDefend(Player p) {
+    // Cheater can "defend" all its territories
+    std::vector<Territory*> pt = p.getTerritory();
+
+    std::vector<Territory*> defend;
+    for (int i = 0; i < pt.size(); ++i) {
+        defend.push_back(pt[i]);
+    }
+
+    return defend;
+}
+
+void SortContext::setStrategy(PlayerStrategy* s) { strategy = s; }
+void SortContext::executeStrategy(Player& p, Map& m) {
+    if (strategy) strategy->issueOrder(p, m);
+}
+
+
