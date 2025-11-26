@@ -1,11 +1,19 @@
+#pragma once
 #include <iostream>
+#include <vector>
+#include "Player.h"
+#include "Map.h"
+#include "Cards.h"
 
 //abstract player strategy class
-class PlayerStrategy{
+class PlayerStrategy {
     public:
-        virtual void issueOrder() =0;
-        virtual void toAttack() =0;
-        virtual void toDefend() =0;
+        virtual ~PlayerStrategy() {}
+
+        // All concrete strategies follow this signature pattern
+        virtual void issueOrder(Player p, Map m) = 0;
+        virtual std::vector<Territory*> toAttack(Map m, Player p) = 0;
+        virtual std::vector<Territory*> toDefend(Player p) = 0;
 };
 
 //human player class
@@ -27,17 +35,26 @@ class AggressivePlayerStrategy : public PlayerStrategy{
 //benevolent player class
 class BenevolentPlayerStrategy : public PlayerStrategy{
     public:
-        void issueOrder(Player p, Map m);
-        void toAttack();
-        std::vector<Territory*> toDefend(Player p);
+        void issueOrder(Player p, Map m) override;
+        std::vector<Territory*> toAttack(Map m, Player p) override; 
+        std::vector<Territory*> toDefend(Player p) override;
 };
 
 //neutral player class
-
+class NeutralPlayerStrategy : public PlayerStrategy{
+    public:
+        void issueOrder(Player p, Map m) override;
+        std::vector<Territory*> toAttack(Map m, Player p) override;
+        std::vector<Territory*> toDefend(Player p) override;
+};
 
 //cheater player class
-
-
+class CheaterPlayerStrategy : public PlayerStrategy{
+    public:
+        void issueOrder(Player p, Map m) override;
+        std::vector<Territory*> toAttack(Map m, Player p) override;
+        std::vector<Territory*> toDefend(Player p) override;
+};
 
 
 //context class that lets you decide which player strategy subclass to use
@@ -49,5 +66,5 @@ class SortContext{
         //sets the strategy thst is to be played
         void setStrategy(PlayerStrategy* strategy);
         //executes the strategy previously set
-        void executeStrategy();
+        void executeStrategy(Player& player, Map& map);
 };
