@@ -55,6 +55,9 @@ private:
     // Track reinforcement pools per player (heap-allocated to respect pointer rule)
     std::unordered_map<Player*, int*>* reinforcementPool_ = nullptr;
 
+    // ===== A3: Tournament logging helper =====
+    std::string* lastLogMessage_ = nullptr;   // buffer used by stringToLog()
+
 public:
     // ===== Constructor/Destructor =====
     GameEngine();
@@ -64,8 +67,14 @@ public:
     std::string stateName() const;       // returns current state's name
     GameState getState() const { return state_; }  
     GameState state() const { return state_; } 
-    void setState(GameState newState) { // ✅ Added setter defined here
-        state_ = newState;                     
+
+    void setState(GameState newState) { // Added setter defined here
+        state_ = newState;    
+
+        if (lastLogMessage_) { //added for A3
+            *lastLogMessage_ = std::string("STATE_CHANGE | ") + stateName();
+        }    
+
         notify();                       //added notify() for part 5
     }
 
@@ -96,6 +105,12 @@ public:
 
     void startupPhase();
 
+     //===== A3: Tournament mode =====
+    void runTournament(const std::vector<std::string>& mapFiles,
+                       const std::vector<std::string>& playerStrategies,
+                       int gamesPerMap,
+                       int maxTurns);
+                       
     std::string stringToLog() const override; // part5
 };
 

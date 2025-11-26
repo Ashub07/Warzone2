@@ -2,6 +2,7 @@
 #include "Orders.h"
 #include <algorithm>
 #include <cctype>
+#include <sstream> //issue
 #include <iostream>
 #include "LoggingObserver.h"
 
@@ -26,15 +27,20 @@ namespace {
 GameEngine::GameEngine()
     : state_(GameState::Start)
     , reinforcementPool_(new std::unordered_map<Player*, int*>())
+    , lastLogMessage_(new std::string("")) //added for A3 to initialize log buffer
 {
     buildTransitions();
 }
 
 GameEngine::~GameEngine() {
-    if (reinforcementPool_) {
+     if (reinforcementPool_) {
         for (auto& kv : *reinforcementPool_) delete kv.second;
         delete reinforcementPool_;
         reinforcementPool_ = nullptr;
+    }
+    if (lastLogMessage_) { //added for A3 for deletion of lastLogMessage_
+        delete lastLogMessage_;
+        lastLogMessage_ = nullptr;
     }
 }
 
@@ -116,7 +122,7 @@ void GameEngine::buildTransitions() {
     // win
     transitions_[GameState::Win] = {
         {"play", GameState::AssignReinforcement},
-        {"end",  GameState::End}
+        {"quit",  GameState::End} //changed from "end" to "quit" for A3
     };
 
     // end has no outgoing transitions
@@ -172,7 +178,7 @@ bool GameEngine::processCommand(const std::string& in) {
     else if (state_ == GameState::ExecuteOrders && cmd == "endexecorders") onEndExecOrders();
     else if (state_ == GameState::ExecuteOrders && cmd == "win")           onWin();
     else if (state_ == GameState::Win && cmd == "play")                    onPlayAgain();
-    else if (state_ == GameState::Win && cmd == "end")                     onEnd();
+    else if (state_ == GameState::Win && cmd == "quit")                     onEnd(); //changed from "end" to quit
 
     //added a success check to transition to next state or not
      if (!success) {
@@ -421,10 +427,15 @@ void GameEngine::startupPhase(){
     
 }
 
-std::string GameEngine::stringToLog() const {
-    // You can make this more detailed later if you want
+std::string GameEngine::stringToLog() const {//Added for A3
+    // If tournament or something else set a special message, use it.
+    if (lastLogMessage_ && !lastLogMessage_->empty()) {
+        return *lastLogMessage_;
+    }
+    // Fallback: state change log (A2)
     return std::string("STATE_CHANGE | ") + stateName();
 }
+
 
 // ====== Part 3: Reinforcement / Issue Orders / Execute Orders ======
 
@@ -635,4 +646,146 @@ void GameEngine::executeOrdersPhase() {
         state_ = GameState::AssignReinforcement;
         std::cout << "Transitioned to state: " << stateName() << "\n";
     }
+
+    
+    
+    
+    
+
 }
+
+// ===== A3: Tournament Mode =================================================
+
+void GameEngine::runTournament(const std::vector<std::string>& mapFiles,
+                               const std::vector<std::string>& playerStrategies,
+                               int gamesPerMap,
+                               int maxTurns)
+{
+    // Results table: results[mapIndex][gameIndex] = winner name or "Draw"
+    std::vector<std::vector<std::string>> results(
+        mapFiles.size(),
+        std::vector<std::string>(gamesPerMap, "Draw")
+    );
+
+    for (size_t m = 0; m < mapFiles.size(); ++m) {
+        const std::string& mapName = mapFiles[m];
+
+        for (int g = 0; g < gamesPerMap; ++g) {
+            // ---- create a fresh engine per game so games are independent ----
+            GameEngine game;  // uses same rules/phases as normal game
+
+            // ---- load and validate map (no console interaction) ----
+            bool okMap = game.loader_.loadMap(mapName);
+            game.map_ = game.loader_.getMap();
+            if (!okMap || !game.map_ || !game.map_->validate()) {
+                std::cout << "[tournament] ERROR: cannot use map '" << mapName << "'\n";
+                results[m][g] = "InvalidMap";
+                continue;
+            }
+
+            // ---- create players according to strategy names ----
+            game.clearPlayers();
+            std::vector<Territory*> none;
+
+            for (const auto& stratName : playerStrategies) {
+                // Player name = strategy name (Aggressive, Benevolent, etc.)
+                // Strategy objects will be attached in Part 1 of A3 inside Player.
+                Deck* d       = new Deck();
+                OrdersList* o = new OrdersList();
+                Player* p     = new Player(stratName, none, d, o);
+                game.players_.push_back(p);
+            }
+
+            // ---- initial territory assignment ----
+            game.distributeRoundRobin();
+
+            // ---- very simple startup for play phase ----
+            game.state_ = GameState::AssignReinforcement;
+
+            // Each player draws 2 cards like startup phase
+            for (auto* p : game.players_) {
+                Deck* d = p->getDeck();
+                if (d) {
+                    Hand tempHand;
+                    d->draw(tempHand);
+                    d->draw(tempHand);
+                }
+            }
+
+            // ---- play loop: reinforcement -> issue -> execute, up to maxTurns ----
+            std::string winner = "Draw";
+
+            for (int turn = 0; turn < maxTurns; ++turn) {
+                std::cout << "\n[tournament] Map: " << mapName
+                          << " Game: " << (g + 1)
+                          << " Turn: " << (turn + 1) << "\n";
+
+                game.reinforcementPhase();
+                game.issueOrdersPhase();
+                game.executeOrdersPhase();
+
+                // Remove defeated players and check winner
+                game.removeDefeatedPlayers();
+                if (game.checkWinAndMaybeEnterWinState()) {
+                    // Whoever owns all territories is the winner
+                    size_t total = game.map_->getTerritories()
+                                 ? game.map_->getTerritories()->size()
+                                 : 0;
+
+                    for (auto* p : game.players_) {
+                        if (p->getTerritory().size() == total) {
+                            winner = p->getPName();
+                            break;
+                        }
+                    }
+                    break; // stop this game
+                }
+
+                // If all players still alive but no winner, continue until maxTurns
+            }
+
+            results[m][g] = winner;
+            game.clearPlayers(); // clean up for this game
+        }
+    }
+
+    // ---- Build result summary exactly like the assignment wants ----
+    std::ostringstream ss;
+    ss << "Tournament Mode:\n";
+    ss << "M: ";
+    for (size_t i = 0; i < mapFiles.size(); ++i) {
+        ss << mapFiles[i];
+        if (i + 1 < mapFiles.size()) ss << " ";
+    }
+    ss << "\nP: ";
+    for (size_t i = 0; i < playerStrategies.size(); ++i) {
+        ss << playerStrategies[i];
+        if (i + 1 < playerStrategies.size()) ss << ", ";
+    }
+    ss << "\nG: " << gamesPerMap << "\n";
+    ss << "D: " << maxTurns << "\n\n";
+
+    ss << "Results:\n";
+    ss << "           ";
+    for (int g = 0; g < gamesPerMap; ++g) {
+        ss << "Game" << (g + 1) << "   ";
+    }
+    ss << "\n";
+
+    for (size_t m = 0; m < mapFiles.size(); ++m) {
+        ss << mapFiles[m] << "   ";
+        for (int g = 0; g < gamesPerMap; ++g) {
+            ss << results[m][g] << "   ";
+        }
+        ss << "\n";
+    }
+
+    std::string summary = ss.str();
+    std::cout << "\n" << summary << "\n";
+
+    if (lastLogMessage_) {
+        *lastLogMessage_ = summary; // will be logged by LoggingObserver
+    }
+    notify();  // log one big entry for the tournament
+}
+

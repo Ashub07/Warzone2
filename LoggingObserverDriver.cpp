@@ -48,9 +48,7 @@ void testLoggingObserver() {
     cout << "Done. Check 'gamelog.txt'.\n";
 }
 
-main(){
-    testLoggingObserver();
-}
+
 
 
 
