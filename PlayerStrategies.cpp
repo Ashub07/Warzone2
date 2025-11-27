@@ -31,40 +31,41 @@ void HumanPlayerStrategy::issueOrder(Player p, Map m){
     int index = 0;
 
     //reinforcements
-    //if(defendList.empty()) {
-     //   std::cout << "No territories to reinforce.\n";
-    //} else {
-    //while(reinPool > 0){
-      //  Territory* t = defendList[index];
+    if(defendList.empty()) {
+        std::cout << "No territories to reinforce.\n";
+    } 
+    else {
+    while(reinPool > 0){
+        Territory* t = defendList[index];
         //get army number
-       // int arm = t->getArmies();
-       // int added = 0;
-       // std::cout << "How many army units would you like to add to this territory? " << t->getName() << " You have " << reinPool << " left: ";
-       // std::cin >> added;
+        int arm = t->getArmies();
+        int added = 0;
+        std::cout << "How many army units would you like to add to this territory? " << t->getName() << " You have " << reinPool << " left: ";
+        std::cin >> added;
 
-        //if (added > reinPool) added = reinPool;
-        //if (added < 0) added = 0;
+        if (added > reinPool) added = reinPool;
+        if (added < 0) added = 0;
         //add 1 to army
-        //arm += added;
+        arm += added;
         // Add 1 army (example logic)
-        //t->setArmies(arm);
-        //reinPool -= added;
+        t->setArmies(arm);
+        reinPool -= added;
         // move to next territory (loop around)
-        //index = (index + 1) % defendList.size();
-        //Orders* ord = new Deploy(&p1, t, &arm);
-        //orders.push_back(ord);
-    //}
-    //}
+        index = (index + 1) % defendList.size();
+        Orders* ord = new Deploy(&p1, t, &arm);
+        orders.push_back(ord);
+    }
+    }
     //advance
-    //while(!attackList.empty() && !defendList.empty()){
-      //  Territory* t1 = attackList[index];
-       // Territory* t2 = defendList[index];
-       // int arm = t2->getArmies();
-        //Orders* ord = new Advance(&p1, t1, t2, &arm);
-        //orders.push_back(ord);
-        // move to next territory (loop around)
-        //index = (index + 1) % defendList.size();
-    //}
+    if (!attackList.empty() && !defendList.empty()) {
+        for (size_t i = 0; i < attackList.size(); ++i) {
+            Territory* t1 = attackList[i];                              // target to attack
+            Territory* t2 = defendList[i % defendList.size()];          // source/defend territory
+            int arm = t2->getArmies();
+            Orders* ord = new Advance(&p1, t1, t2, &arm);
+            orders.push_back(ord);
+        }
+    }
 
     //CARDS
 //cards HELP TO CHECK HOW TO GET CARDS**
