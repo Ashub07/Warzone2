@@ -185,3 +185,8 @@ void testPlayerStrategies() {
     cout << "===== testPlayerStrategies(): END =====\n\n";
 
 }
+
+int main() {
+    testPlayerStrategies();
+    return 0;
+}
