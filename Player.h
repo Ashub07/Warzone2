@@ -6,11 +6,14 @@
 #include "Map.h"
 #include "Cards.h"
 #include "Orders.h"
+#include "PlayerStrategies.h"
 
 // ================= Player Class =================
 // Represents a single player in the game, holding their
 // name, territories, deck of cards, and orders list.
 // Provides methods for defending, attacking, and issuing orders.
+
+class PlayerStrategy;
 
 class Player {
 public:
@@ -25,12 +28,14 @@ public:
     std::vector<Territory*> getTerritory() const;
     Deck* getDeck() const;             // returns pointer to Deck
     OrdersList* getOrder() const;      // returns pointer to OrdersList
+    PlayerStrategy* getStrategy() const;
 
     // ===== Setters =====
     void setPName(std::string pName);
     void setTerritory(std::vector<Territory*> Pterritories);
     void setDeck(Deck* deck);                // sets Deck contents
     void setOrdersList(OrdersList* order);   // sets OrdersList contents
+    void setStrategy(PlayerStrategy* s);
 
     // ===== Gameplay methods =====
     std::vector<Territory*> toDefend(Player p);   // territories to defend
@@ -41,6 +46,7 @@ public:
     void addReinforcements(int n);
     void useReinforcements(int n);
     bool hasTerritories() const;
+    bool isNeutral() const;
 
 private:
     // ===== Member variables =====
@@ -49,4 +55,7 @@ private:
     Deck* deck;                                  // deck of cards
     OrdersList* order;                           // player's orders list
     int* reinforcementPool;
+    PlayerStrategy* strategy;
+    // Helper to choose correct strategy implementation from the player's name
+    void initStrategyFromName(const std::string& name);
 };
