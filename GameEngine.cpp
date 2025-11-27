@@ -5,6 +5,7 @@
 #include <sstream> //issue
 #include <iostream>
 #include "LoggingObserver.h"
+#include "PlayerStrategies.h"
 
 namespace {
     // Map states to their display name.
@@ -628,7 +629,33 @@ void GameEngine::executeOrdersPhase() {
 
             Orders* top = v.front();
             if (top) {
+                // Detect if this is an Advance against a Neutral player
+                Player* defenderBefore = nullptr;
+                Advance* adv = dynamic_cast<Advance*>(top);
+                if (adv) {
+                    // Copy of the target territory *before* execution
+                    Territory targBefore = adv->getTarg();
+                    std::string defenderName = targBefore.getOwner();
+
+                    // Find the corresponding Player*, if any
+                    for (auto* candidate : players_) {
+                        if (candidate && candidate->getPName() == defenderName) {
+                            defenderBefore = candidate;
+                            break;
+                        }
+                    }
+                }
+
                 bool ok = top->execute();
+
+                // If that defender was Neutral, switch to Aggressive 
+                if (ok && defenderBefore && defenderBefore->isNeutral()) {
+                    defenderBefore->setStrategy(new AggressivePlayerStrategy());
+                    std::cout << "[executeOrders] Player \""
+                              << defenderBefore->getPName()
+                              << "\" was Neutral and has become Aggressive after being attacked.\n";
+                }
+                
                 std::cout << "[executeOrders] " << p->getPName()
                           << " executes " << typeid(*top).name()
                           << " -> " << (ok ? "OK" : "INVALID") << "\n";
