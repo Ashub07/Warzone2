@@ -4,6 +4,7 @@
 #include "Player.h"
 #include "Cards.h"
 #include "Orders.h"
+#include "PlayerStrategies.h"
 #include <string>
 
 // ================= Constructors & Destructor =================
@@ -14,6 +15,7 @@ Player::Player() {
     Pterritories = new std::vector<Territory*>;
     deck = new Deck;              // allocate Deck on heap
     order = new OrdersList;       // allocate OrdersList on heap
+    strategy = new HumanPlayerStrategy(); // default: human strategy 
 }
 
 // parameterized constructor
@@ -22,6 +24,8 @@ Player::Player(std::string pName1, std::vector<Territory*> t1, Deck* d1, OrdersL
     this->Pterritories = new std::vector<Territory*>(t1);
     this->deck = d1;       // use provided Deck pointer
     this->order = o1;      // use provided OrdersList pointer
+    strategy = nullptr;
+    initStrategyFromName(pName1); // Initialize strategy based on the player name
 }
 
 // copy constructor
@@ -30,6 +34,8 @@ Player::Player(const Player& other) {
     Pterritories = new std::vector<Territory*>(*other.Pterritories);
     deck = new Deck(*other.deck);
     order = new OrdersList(*other.order);
+    strategy = nullptr;
+    initStrategyFromName(*pName); // Re-create a suitable strategy from the copied player's name
 }
 
 // destructor
@@ -38,6 +44,8 @@ Player::~Player() {
     delete Pterritories;
     delete deck;
     delete order;
+    delete strategy;
+    strategy = nullptr;
 }
 
 // ================= Getters =================
@@ -151,5 +159,45 @@ void Player::issueOrder() {
         std::cout << "[issueOrder] " << *pName << " Deploy " << amount
                   << " to " << target->getName()
                   << " (pool=" << *reinforcementPool << ")\n";
+    }
+}
+
+// ================= Strategy-related methods =================
+
+void Player::setStrategy(PlayerStrategy* s) {
+    if (strategy == s) return;
+    delete strategy;
+    strategy = s;
+}
+
+PlayerStrategy* Player::getStrategy() const {
+    return strategy;
+}
+
+bool Player::isNeutral() const {
+    // Returns true if this player's current strategy is NeutralPlayerStrategy
+    return dynamic_cast<NeutralPlayerStrategy*>(strategy) != nullptr;
+}
+
+void Player::initStrategyFromName(const std::string& name) {
+    // Clear existing
+    delete strategy;
+    strategy = nullptr;
+
+    if (name == "Aggressive") {
+        strategy = new AggressivePlayerStrategy();
+    }
+    else if (name == "Benevolent") {
+        strategy = new BenevolentPlayerStrategy();
+    }
+    else if (name == "Neutral") {
+        strategy = new NeutralPlayerStrategy();
+    }
+    else if (name == "Cheater") {
+        strategy = new CheaterPlayerStrategy();
+    }
+    else {
+        // default to human behavior for any other name
+        strategy = new HumanPlayerStrategy();
     }
 }
