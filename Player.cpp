@@ -16,6 +16,7 @@ Player::Player() {
     deck = new Deck;              // allocate Deck on heap
     order = new OrdersList;       // allocate OrdersList on heap
     strategy = new HumanPlayerStrategy(); // default: human strategy 
+    reinforcementPool = new int(0);
 }
 
 // parameterized constructor
@@ -26,6 +27,7 @@ Player::Player(std::string pName1, std::vector<Territory*> t1, Deck* d1, OrdersL
     this->order = o1;      // use provided OrdersList pointer
     strategy = nullptr;
     initStrategyFromName(pName1); // Initialize strategy based on the player name
+    reinforcementPool = new int(0);
 }
 
 // copy constructor
@@ -36,6 +38,7 @@ Player::Player(const Player& other) {
     order = new OrdersList(*other.order);
     strategy = nullptr;
     initStrategyFromName(*pName); // Re-create a suitable strategy from the copied player's name
+    reinforcementPool = new int(*other.reinforcementPool);
 }
 
 // destructor
@@ -46,6 +49,7 @@ Player::~Player() {
     delete order;
     delete strategy;
     strategy = nullptr;
+    delete reinforcementPool;
 }
 
 // ================= Getters =================
