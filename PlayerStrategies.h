@@ -18,6 +18,9 @@ class PlayerStrategy {
 
 //human player class
 class HumanPlayerStrategy : public PlayerStrategy{
+    private:
+        std::vector<Territory*> lastDefendList;  
+        std::vector<Territory*> lastAttackList;
     public:
         void issueOrder(Player p, Map m);
         std::vector<Territory*> toAttack(Map m, Player p);

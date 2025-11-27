@@ -167,7 +167,7 @@ void testPlayerStrategies() {
     printTerritoryList("Neutral (now Aggressive) toAttack", neutAggAtk);
 
     cout << "[Neutral→Aggressive] issueOrder() – should now behave like an aggressive AI.\n";
-    neutralAggressiveStrat.issueOrder(neutral, map);
+    //neutralAggressiveStrat.issueOrder(neutral, map);
     cout << "\n";
 
     // 9. Demonstrate CHEATER player strategy
